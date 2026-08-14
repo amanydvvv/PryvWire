@@ -73,16 +73,24 @@ async def process_secure_prompt(request: SecurityRequest, background_tasks: Back
         entities_found = list(set([res.entity_type for res in results]))
 
         # 3. Secure LLM Routing
+        load_dotenv(override=True)
         groq_key = os.environ.get("GROQ_API_KEY")
+        model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
         if not groq_key or groq_key == "your_actual_api_key_here":
              llm_response_text = "SYSTEM MESSAGE: GROQ_API_KEY not found in .env. LLM bypassed."
         else:
              try:
-                 llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name="llama3-8b-8192")
+                 llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name=model_name)
                  llm_response = llm.invoke(safe_prompt)
                  llm_response_text = llm_response.content
              except Exception as llm_err:
-                 llm_response_text = f"LLM Gateway Notification: {str(llm_err)}"
+                 # Fallback to llama-3.3-70b-versatile or llama3-8b-8192 if requested model is unavailable
+                 try:
+                     llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name="llama-3.1-8b-instant")
+                     llm_response = llm.invoke(safe_prompt)
+                     llm_response_text = llm_response.content
+                 except Exception as fallback_err:
+                     llm_response_text = f"LLM Gateway Notification: {str(fallback_err)}"
         
         processing_time_ms = int((time.time() - start_time) * 1000)
 
