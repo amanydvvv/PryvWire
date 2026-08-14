@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+presidio-analyzer
+presidio-anonymizer
+langchain-groq
+python-dotenv
+alembic
+psycopg2-binary
+spacy
