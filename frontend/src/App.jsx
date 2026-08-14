@@ -1,707 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, 
-  ShieldAlert, 
-  Shield, 
-  Lock, 
-  Zap, 
-  Activity, 
-  Terminal, 
-  Copy, 
-  CheckCircle, 
-  AlertTriangle, 
-  EyeOff, 
-  FileText, 
-  RefreshCw, 
-  Sparkles,
-  Database,
-  Cpu
-} from 'lucide-react';
+import { useState } from 'react'
 
-const API_BASE_URL = 'http://localhost:8000';
+function App() {
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
 
-const PRESETS = [
-  {
-    name: "Corporate Payroll & Email",
-    text: "Please send the Q3 bonus spreadsheet to Sarah Connor at sarah.c@cyberdyne.io or call her mobile at +1 (415) 555-0199."
-  },
-  {
-    name: "Financial Account & SSN",
-    text: "Customer Johnathan Vance submitted SSN 123-45-6789 and requested wire transfer from routing #021000021."
-  },
-  {
-    name: "Credit Card Leak",
-    text: "Charge client card 4532-8921-9871-3421 for enterprise subscription renewal before expiration."
-  },
-  {
-    name: "Clean Dev Prompt",
-    text: "Write a high-performance Python script to calculate Fibonacci sequence using dynamic programming."
-  }
-];
-
-export default function App() {
-  const [prompt, setPrompt] = useState(PRESETS[0].text);
-  const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  
-  // Results
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  
-  // Telemetry & Stats (stored locally & aggregated)
-  const [totalRequests, setTotalRequests] = useState(0);
-  const [totalThreats, setTotalThreats] = useState(0);
-  const [lastLatency, setLastLatency] = useState(0);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [backendHealth, setBackendHealth] = useState(null);
-  const [showDocsModal, setShowDocsModal] = useState(false);
-
-  // Check health
-  const checkHealth = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/health`);
-      if (res.ok) {
-        const data = await res.json();
-        setBackendHealth(data);
-      } else {
-        setBackendHealth(null);
-      }
-    } catch {
-      setBackendHealth(null);
-    }
-  };
-
-  useEffect(() => {
-    checkHealth();
-    const interval = setInterval(checkHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleSanitize = async (e) => {
-    if (e) e.preventDefault();
-    if (!prompt.trim()) return;
-
+  const handleSanitize = async () => {
+    if (!prompt) return;
     setLoading(true);
     setError(null);
+    setResult(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/sanitize`, {
+      const response = await fetch('http://localhost:8000/api/v1/sanitize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_prompt: prompt
-        })
+        body: JSON.stringify({ user_prompt: prompt, client_id: 'web-dashboard' })
       });
 
-      const json = await response.json();
-
-      if (!response.ok) {
-        throw new Error(json.detail || "Request failed due to security middleware interception.");
-      }
-
-      const resData = json.data;
-      setResult(resData);
+      if (!response.ok) throw new Error('Security Middleware Blocked Request');
       
-      // Update telemetry
-      const newThreats = resData.metrics.threats_intercepted;
-      const latency = resData.metrics.processing_time_ms;
-      
-      setTotalRequests(prev => prev + 1);
-      setTotalThreats(prev => prev + newThreats);
-      setLastLatency(latency);
-
-      // Append to Zero-PII Audit log
-      const newLog = {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        status: "SUCCESS",
-        threats_intercepted: newThreats,
-        entities_blocked: resData.metrics.entities_blocked,
-        sanitized_preview: resData.sanitized_prompt.slice(0, 75) + (resData.sanitized_prompt.length > 75 ? "..." : ""),
-        latency_ms: latency
-      };
-      setAuditLogs(prev => [newLog, ...prev.slice(0, 19)]);
-
+      const data = await response.json();
+      setResult(data.data);
     } catch (err) {
       setError(err.message);
-      setResult(null);
-
-      // Log blocked request
-      const failedLog = {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        status: "FAIL_CLOSED_BLOCKED",
-        threats_intercepted: 0,
-        entities_blocked: ["SECURITY_GUARD"],
-        sanitized_preview: "[BLOCKED BY SECURITY POLICY]",
-        latency_ms: 0
-      };
-      setAuditLogs(prev => [failedLog, ...prev.slice(0, 19)]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getBadgeClass = (type) => {
-    switch (type) {
-      case 'EMAIL_ADDRESS': return 'entity-badge email';
-      case 'PERSON': return 'entity-badge person';
-      case 'PHONE_NUMBER': return 'entity-badge phone';
-      case 'US_SSN':
-      case 'CREDIT_CARD': return 'entity-badge ssn';
-      default: return 'entity-badge default';
-    }
-  };
+  }
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 20px 60px' }}>
-      
-      {/* Top Navigation */}
-      <header className="glass-panel" style={{ padding: '16px 24px', marginBottom: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2))',
-            padding: '10px',
-            borderRadius: '12px',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <ShieldCheck size={28} color="#10b981" />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px' }}>
-                TrustShield <span style={{ color: '#10b981', fontWeight: '400' }}>| PII Gateway</span>
-              </h1>
-              <span style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                color: '#10b981',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: '700',
-                fontFamily: 'var(--font-mono)'
-              }}>
-                TRD v1.0.0
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
-              Enterprise Zero-PII Redaction Engine &amp; LLM Security Middleware
-            </p>
-          </div>
-        </div>
-
-        {/* Status Indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.03)', padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', fontSize: '13px' }}>
-            <span className="pulse-dot"></span>
-            <span style={{ color: 'var(--text-muted)' }}>Backend:</span>
-            <strong style={{ color: backendHealth ? '#10b981' : '#f43f5e' }}>
-              {backendHealth ? 'Secure & Operational (Port 8000)' : 'Connecting...'}
-            </strong>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', fontSize: '13px' }}>
-            <Cpu size={14} color="#06b6d4" />
-            <span style={{ color: 'var(--text-muted)' }}>Engine:</span>
-            <strong style={{ color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>Presidio + Groq</strong>
-          </div>
-
-          <button 
-            onClick={() => setShowDocsModal(true)}
-            className="btn-secondary"
-          >
-            <FileText size={14} />
-            Swagger &amp; TRD Docs
-          </button>
+    <div className="min-h-screen p-8 font-sans text-gray-800">
+      <header className="max-w-5xl mx-auto mb-8 flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Enterprise PII Security Middleware</h1>
+        <div className="flex items-center space-x-2">
+          <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse"></span>
+          <span className="text-sm font-semibold text-green-700">System Secure</span>
         </div>
       </header>
 
-      {/* KPI Cards Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '16px',
-        marginBottom: '28px'
-      }}>
-        {/* KPI 1: Threats Blocked */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>PII Threats Intercepted</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-                {totalThreats}
-              </div>
-            </div>
-            <div style={{ background: 'rgba(16, 185, 129, 0.12)', padding: '10px', borderRadius: '10px' }}>
-              <ShieldAlert size={22} color="#10b981" />
-            </div>
-          </div>
-          <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={14} color="#10b981" />
-            <span>Emails, Phones, Persons Redacted</span>
-          </div>
-        </div>
+      <main className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Input Section */}
+        <section className="bg-white p-6 rounded-lg shadow-md border border-gray-200 flex flex-col">
+          <h2 className="text-xl font-semibold mb-4">Test Prompt Input</h2>
+          <textarea
+            className="w-full h-48 p-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none mb-4"
+            placeholder="Type a message containing fake PII (e.g., 'Email John Doe at john@example.com or call 555-0199')..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+          ></textarea>
+          <button
+            onClick={handleSanitize}
+            disabled={loading}
+            className={`w-full py-3 rounded font-bold text-white transition-colors ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+          >
+            {loading ? 'Processing through Security Layer...' : 'Sanitize & Send (Secure Route)'}
+          </button>
+          
+          {error && <div className="mt-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">{error}</div>}
+        </section>
 
-        {/* KPI 2: Total Requests */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Inspected Requests</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
-                {totalRequests}
-              </div>
+        {/* Output Section */}
+        <section className="flex flex-col space-y-6">
+          {/* Metrics Banner */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
+              <p className="text-sm text-gray-500 font-semibold uppercase">Threats Intercepted</p>
+              <p className="text-3xl font-bold text-red-600">{result?.metrics?.threats_intercepted || 0}</p>
             </div>
-            <div style={{ background: 'rgba(6, 182, 212, 0.12)', padding: '10px', borderRadius: '10px' }}>
-              <Activity size={22} color="#06b6d4" />
-            </div>
-          </div>
-          <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Zap size={14} color="#06b6d4" />
-            <span>Evaluated via Microsoft Presidio</span>
-          </div>
-        </div>
-
-        {/* KPI 3: Latency SLA */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Last Processing Latency</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#c084fc', fontFamily: 'var(--font-mono)' }}>
-                {lastLatency} <span style={{ fontSize: '16px', fontWeight: '500' }}>ms</span>
-              </div>
-            </div>
-            <div style={{ background: 'rgba(139, 92, 246, 0.12)', padding: '10px', borderRadius: '10px' }}>
-              <Zap size={22} color="#c084fc" />
-            </div>
-          </div>
-          <div style={{ marginTop: '12px', fontSize: '12px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <CheckCircle size={14} color="#10b981" />
-            <span>SLA Met: Sub-second (&lt;1000ms)</span>
-          </div>
-        </div>
-
-        {/* KPI 4: Fail-Closed Posture */}
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Security Architecture</div>
-              <div style={{ fontSize: '22px', fontWeight: '800', marginTop: '12px', color: '#fb7185', letterSpacing: '-0.3px' }}>
-                FAIL-CLOSED
-              </div>
-            </div>
-            <div style={{ background: 'rgba(244, 63, 94, 0.12)', padding: '10px', borderRadius: '10px' }}>
-              <Lock size={22} color="#fb7185" />
-            </div>
-          </div>
-          <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <EyeOff size={14} color="#fb7185" />
-            <span>Zero raw PII storage policy</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Playground & Inspector */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-        
-        {/* Left Column: Interceptor Input & Playground */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Terminal size={18} color="#10b981" />
-              <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Live Interceptor Sandbox</h2>
-            </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-              POST /api/v1/sanitize
-            </span>
-          </div>
-
-          {/* Quick Preset Buttons */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '500' }}>
-              Select Enterprise Test Scenario:
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {PRESETS.map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setPrompt(p.text)}
-                  className="preset-chip"
-                >
-                  {p.name}
-                </button>
-              ))}
+            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
+              <p className="text-sm text-gray-500 font-semibold uppercase">Latency (ms)</p>
+              <p className="text-3xl font-bold text-blue-600">{result?.metrics?.processing_time_ms || 0}</p>
             </div>
           </div>
 
-          {/* Prompt Input Form */}
-          <form onSubmit={handleSanitize} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div style={{ position: 'relative', flex: 1, marginBottom: '16px' }}>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Enter text containing sensitive PII (emails, names, phone numbers)..."
-                rows={7}
-                maxLength={2000}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  minHeight: '160px',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '10px',
-                  padding: '14px',
-                  color: 'var(--text-main)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  resize: 'vertical',
-                  outline: 'none',
-                  transition: 'border 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--accent-emerald)'}
-                onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
-              />
-              <div style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'right', marginTop: '4px' }}>
-                {prompt.length} / 2000 characters
-              </div>
+          {/* Results Console */}
+          <div className="bg-gray-900 rounded-lg shadow-md border border-gray-700 p-6 flex-grow flex flex-col text-gray-100">
+            <h3 className="text-lg font-semibold mb-2 text-gray-400">1. Sanitized Payload (Sent to LLM)</h3>
+            <div className="bg-gray-800 p-4 rounded mb-4 font-mono text-sm min-h-[80px] border border-gray-700">
+              {result ? result.sanitized_prompt : <span className="text-gray-600">Waiting for input...</span>}
             </div>
 
-            {/* Options and Submit */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button
-                type="submit"
-                disabled={loading || !prompt.trim()}
-                className="btn-primary"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                    Intercepting &amp; Redacting...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={16} />
-                    Inspect &amp; Sanitize Prompt
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Error Notice (Fail-Closed) */}
-          {error && (
-            <div style={{
-              marginTop: '18px',
-              padding: '14px',
-              background: 'rgba(244, 63, 94, 0.1)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px'
-            }}>
-              <AlertTriangle size={20} color="#f43f5e" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ color: '#fb7185', fontSize: '13px', display: 'block' }}>
-                  Security Guard Block Engaged
-                </strong>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
-                  {error}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: Multi-Stage Inspection Panel */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} color="#06b6d4" />
-              <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Real-Time Pipeline Inspection</h2>
-            </div>
-            {result && (
-              <span style={{
-                background: 'rgba(6, 182, 212, 0.1)',
-                color: '#06b6d4',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)'
-              }}>
-                ⚡ {result.metrics.processing_time_ms} ms
-              </span>
-            )}
-          </div>
-
-          {!result && !error && (
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '40px 20px',
-              color: 'var(--text-dim)',
-              textAlign: 'center'
-            }}>
-              <Shield size={42} strokeWidth={1.5} style={{ opacity: 0.4, marginBottom: '12px' }} />
-              <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                Waiting for prompt ingestion
-              </div>
-              <p style={{ fontSize: '12px', maxWidth: '320px', marginTop: '6px' }}>
-                Run an enterprise preset or enter a custom prompt to inspect live NER detection, redaction tokens, and Groq inference.
-              </p>
-            </div>
-          )}
-
-          {result && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
-              
-              {/* Detected Entities Badges */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    Blocked Entity Categories ({result.metrics.threats_intercepted}):
-                  </span>
-                </div>
-                
-                {result.metrics.entities_blocked.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#10b981', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px' }}>
-                    ✓ No sensitive PII detected. Prompt is clean.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {result.metrics.entities_blocked.map((item, idx) => (
-                      <div key={idx} className={getBadgeClass(item)}>
-                        <span>{item}</span>
-                        <span style={{ background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '4px', fontSize: '10px' }}>
-                          BLOCKED
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Stage 1: Mathematically Redacted Prompt */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    1. Sanitized Safe Prompt (Zero-PII Payload):
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(result.sanitized_prompt)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
-                  >
-                    {copied ? <CheckCircle size={12} color="#10b981" /> : <Copy size={12} />}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div style={{
-                  padding: '12px',
-                  background: 'rgba(0, 0, 0, 0.4)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  borderRadius: '8px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '12px',
-                  lineHeight: '1.6',
-                  color: '#34d399'
-                }}>
-                  {result.sanitized_prompt}
-                </div>
-              </div>
-
-              {/* Stage 2: LLM Inference Output */}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    2. LLM Safe Gateway Response:
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
-                    llama3-8b-8192
-                  </span>
-                </div>
-                <div style={{
-                  padding: '12px',
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  lineHeight: '1.6',
-                  color: 'var(--text-main)',
-                  maxHeight: '160px',
-                  overflowY: 'auto'
-                }}>
-                  {result.llm_response}
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* Zero-PII Audit Telemetry Stream */}
-      <div className="glass-panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Database size={18} color="#10b981" />
-            <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Compliance Telemetry &amp; Audit Stream</h2>
-            <span style={{
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              background: 'rgba(16, 185, 129, 0.1)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.2)'
-            }}>
-              Zero Raw PII Storage Policy
-            </span>
-          </div>
-
-          <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-            Stream Records: {auditLogs.length}
-          </div>
-        </div>
-
-        {/* Audit Table */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Event ID</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Time</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Status</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Threats Blocked</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Entity Categories</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Sanitized Preview (Zero PII)</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Latency</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                    No audit records recorded yet. Test a prompt in the sandbox above.
-                  </td>
-                </tr>
-              ) : (
-                auditLogs.map((log) => (
-                  <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
-                    <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      #{String(log.id).slice(-6)}
-                    </td>
-                    <td style={{ padding: '12px 14px', color: 'var(--text-dim)', fontSize: '12px' }}>
-                      {log.timestamp}
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        fontFamily: 'var(--font-mono)',
-                        background: log.status === 'SUCCESS' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                        color: log.status === 'SUCCESS' ? '#34d399' : '#fb7185'
-                      }}>
-                        {log.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontWeight: '700', color: log.threats_intercepted > 0 ? '#10b981' : 'var(--text-dim)' }}>
-                      {log.threats_intercepted}
-                    </td>
-                    <td style={{ padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {log.entities_blocked && log.entities_blocked.length > 0 ? (
-                          log.entities_blocked.map((t, i) => (
-                            <span key={i} style={{ fontSize: '10px', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>
-                              {t}
-                            </span>
-                          ))
-                        ) : (
-                          <span style={{ color: 'var(--text-dim)', fontSize: '11px' }}>None</span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {log.sanitized_preview || '—'}
-                    </td>
-                    <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#06b6d4' }}>
-                      {log.latency_ms} ms
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Docs Modal */}
-      {showDocsModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 1000
-        }}>
-          <div className="glass-panel" style={{ maxWidth: '720px', width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: '28px', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FileText size={22} color="#10b981" />
-                <h2 style={{ fontSize: '18px', fontWeight: '800' }}>API &amp; Architecture Documentation</h2>
-              </div>
-              <button
-                onClick={() => setShowDocsModal(false)}
-                className="btn-secondary"
-                style={{ padding: '4px 10px' }}
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px', lineHeight: '1.7', color: 'var(--text-muted)' }}>
-              <div>
-                <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  Interactive Swagger Docs:
-                </strong>
-                Available live at <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" style={{ color: '#10b981' }}>http://localhost:8000/docs</a>
-              </div>
-
-              <div>
-                <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  API Contract (TRD Specification):
-                </strong>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '8px', color: '#34d399' }}>
-                  POST /api/v1/sanitize<br/>
-                  GET /health
-                </div>
-              </div>
+            <h3 className="text-lg font-semibold mb-2 text-gray-400">2. LLM Response</h3>
+            <div className="bg-gray-800 p-4 rounded font-mono text-sm flex-grow border border-gray-700">
+              {result ? result.llm_response : <span className="text-gray-600">Waiting for input...</span>}
             </div>
           </div>
-        </div>
-      )}
-
+        </section>
+      </main>
     </div>
-  );
+  )
 }
+
+export default App
