@@ -28,17 +28,10 @@ from circuit_breaker import circuit_breaker
 # Configure Structured Logger (Zero raw PII logged)
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-    format="%(asctime)s [%(levelname)s] [req_id=%(request_id)s] %(message)s"
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-class RequestIdFilter(logging.Filter):
-    def filter(self, record):
-        if not hasattr(record, "request_id"):
-            record.request_id = "system"
-        return True
-
 logger = logging.getLogger("pryvwire_security_middleware")
-logger.addFilter(RequestIdFilter())
 
 # Initialize Rate Limiter
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT])
