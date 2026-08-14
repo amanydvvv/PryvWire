@@ -246,11 +246,13 @@ async def process_secure_prompt(
 
     try:
         # Step 1: Intercept & Analyze PII via Presidio
+        t1 = time.time()
         results = analyzer.analyze(
             text=raw_text,
             entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"],
             language='en'
         )
+        t2 = time.time()
 
         # Step 2: Redact PII into clear UI tags
         anonymized = anonymizer.anonymize(
@@ -259,6 +261,7 @@ async def process_secure_prompt(
             operators=operators
         )
         safe_prompt = anonymized.text
+        t3 = time.time()
 
         threats_blocked = len(results)
         entities_found = list(set([res.entity_type for res in results]))
@@ -285,8 +288,12 @@ async def process_secure_prompt(
                 circuit_breaker.record_failure()
                 logger.error(f"Groq API call failed after retries: {groq_err}", extra={"request_id": req_id})
                 llm_response_text = f"LLM Gateway Notification: Upstream provider temporary issue ({type(groq_err).__name__}). Sanitized payload preserved."
+        t4 = time.time()
 
-        processing_time_ms = int((time.time() - start_time) * 1000)
+        ner_ms = max(1, int((t2 - t1) * 1000))
+        anon_ms = max(1, int((t3 - t2) * 1000))
+        llm_ms = max(1, int((t4 - t3) * 1000))
+        processing_time_ms = int((t4 - start_time) * 1000)
 
         # Step 4: Dispatch Non-Blocking Audit Logging (Zero-PII)
         background_tasks.add_task(
@@ -312,7 +319,12 @@ async def process_secure_prompt(
                 "metrics": {
                     "threats_intercepted": threats_blocked,
                     "entities_blocked": entities_found,
-                    "processing_time_ms": processing_time_ms
+                    "processing_time_ms": processing_time_ms,
+                    "latency_breakdown": {
+                        "ner_analyzer_ms": ner_ms,
+                        "anonymizer_ms": anon_ms,
+                        "llm_inference_ms": llm_ms
+                    }
                 }
             }
         }
