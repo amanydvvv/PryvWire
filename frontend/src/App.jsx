@@ -16,7 +16,7 @@ function App() {
       const response = await fetch('http://localhost:8000/api/v1/sanitize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: prompt, client_id: 'web-dashboard' })
+        body: JSON.stringify({ user_prompt: prompt, client_id: 'ciphergate-ui' })
       });
 
       if (!response.ok) throw new Error('Security Middleware Blocked Request');
@@ -30,63 +30,97 @@ function App() {
     }
   }
 
+  // Claymorphism badge renderer
+  const renderHighlightedText = (text) => {
+    const parts = text.split(/(\[REDACTED: [A-Z_]+\])/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('[REDACTED:')) {
+        const entity = part.replace('[REDACTED: ', '').replace(']', '');
+        return (
+          <span key={index} className="inline-block bg-[#e8eef2] text-indigo-500 px-3 py-1 rounded-xl font-mono text-xs mx-1 font-bold shadow-[inset_3px_3px_6px_#c5cad5,inset_-3px_-3px_6px_#ffffff] border-2 border-white/40">
+            {entity}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   return (
-    <div className="min-h-screen p-8 font-sans text-gray-800">
-      <header className="max-w-5xl mx-auto mb-8 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Enterprise PII Security Middleware</h1>
-        <div className="flex items-center space-x-2">
-          <span className="h-3 w-3 bg-green-500 rounded-full animate-pulse"></span>
-          <span className="text-sm font-semibold text-green-700">System Secure</span>
-        </div>
+    <div className="min-h-screen bg-[#e8eef2] p-6 md:p-12 font-sans text-slate-600 flex flex-col items-center">
+      
+      {/* Header */}
+      <header className="w-full max-w-5xl mb-12 text-center">
+        <h1 className="text-4xl font-extrabold text-slate-700 tracking-tight mb-2">CipherGate</h1>
+        <p className="text-slate-500 font-medium tracking-wide">Zero-Retention Security Middleware</p>
       </header>
 
-      <main className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Input Section */}
-        <section className="bg-white p-6 rounded-lg shadow-md border border-gray-200 flex flex-col">
-          <h2 className="text-xl font-semibold mb-4">Test Prompt Input</h2>
-          <textarea
-            className="w-full h-48 p-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none mb-4"
-            placeholder="Type a message containing fake PII (e.g., 'Email John Doe at john@example.com or call 555-0199')..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          ></textarea>
+      {/* Main Clay Container */}
+      <main className="w-full max-w-5xl bg-[#e8eef2] rounded-[3rem] shadow-[12px_12px_24px_#c5cad5,-12px_-12px_24px_#ffffff] border-4 border-white/40 p-8 md:p-12 grid grid-cols-1 lg:grid-cols-2 gap-12">
+        
+        {/* Left Column: Input */}
+        <section className="flex flex-col space-y-6">
+          <div>
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 ml-2">Input Payload</h2>
+            <textarea
+              className="w-full h-56 bg-[#e8eef2] text-slate-700 placeholder-slate-400 rounded-3xl shadow-[inset_6px_6px_12px_#c5cad5,inset_-6px_-6px_12px_#ffffff] outline-none p-6 font-mono text-sm resize-none focus:shadow-[inset_8px_8px_16px_#c5cad5,inset_-8px_-8px_16px_#ffffff] transition-all"
+              placeholder="Enter text containing sensitive data..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            ></textarea>
+          </div>
+          
           <button
             onClick={handleSanitize}
             disabled={loading}
-            className={`w-full py-3 rounded font-bold text-white transition-colors ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className={`w-full py-5 rounded-3xl font-bold tracking-wide transition-all ${
+              loading 
+                ? 'bg-[#e8eef2] text-slate-400 shadow-[inset_4px_4px_8px_#c5cad5,inset_-4px_-4px_8px_#ffffff] cursor-not-allowed' 
+                : 'bg-indigo-400 text-white shadow-[8px_8px_16px_#c5cad5,-8px_-8px_16px_#ffffff] active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.1),8px_8px_16px_#c5cad5,-8px_-8px_16px_#ffffff] hover:bg-indigo-500'
+            }`}
           >
-            {loading ? 'Processing through Security Layer...' : 'Sanitize & Send (Secure Route)'}
+            {loading ? 'Processing...' : 'Sanitize & Execute'}
           </button>
-          
-          {error && <div className="mt-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">{error}</div>}
+
+          {error && (
+            <div className="p-5 bg-red-50 text-red-500 rounded-3xl shadow-[inset_4px_4px_8px_rgba(239,68,68,0.2),inset_-4px_-4px_8px_#ffffff] font-medium text-center text-sm">
+              {error}
+            </div>
+          )}
         </section>
 
-        {/* Output Section */}
-        <section className="flex flex-col space-y-6">
-          {/* Metrics Banner */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
-              <p className="text-sm text-gray-500 font-semibold uppercase">Threats Intercepted</p>
-              <p className="text-3xl font-bold text-red-600">{result?.metrics?.threats_intercepted || 0}</p>
+        {/* Right Column: Output & Metrics */}
+        <section className="flex flex-col space-y-8">
+          
+          {/* Metrics Row */}
+          <div className="grid grid-cols-2 gap-6">
+            <div className="bg-[#e8eef2] rounded-[2rem] shadow-[8px_8px_16px_#c5cad5,-8px_-8px_16px_#ffffff] p-6 flex flex-col items-center border-2 border-white/50">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Threats</span>
+              <span className="text-3xl font-black text-indigo-400">{result?.metrics?.threats_intercepted || 0}</span>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 text-center">
-              <p className="text-sm text-gray-500 font-semibold uppercase">Latency (ms)</p>
-              <p className="text-3xl font-bold text-blue-600">{result?.metrics?.processing_time_ms || 0}</p>
+            <div className="bg-[#e8eef2] rounded-[2rem] shadow-[8px_8px_16px_#c5cad5,-8px_-8px_16px_#ffffff] p-6 flex flex-col items-center border-2 border-white/50">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Latency</span>
+              <span className="text-3xl font-black text-slate-600">{result?.metrics?.processing_time_ms || 0}<span className="text-lg text-slate-400 ml-1">ms</span></span>
             </div>
           </div>
 
-          {/* Results Console */}
-          <div className="bg-gray-900 rounded-lg shadow-md border border-gray-700 p-6 flex-grow flex flex-col text-gray-100">
-            <h3 className="text-lg font-semibold mb-2 text-gray-400">1. Sanitized Payload (Sent to LLM)</h3>
-            <div className="bg-gray-800 p-4 rounded mb-4 font-mono text-sm min-h-[80px] border border-gray-700">
-              {result ? result.sanitized_prompt : <span className="text-gray-600">Waiting for input...</span>}
+          {/* Read-Only Displays */}
+          <div className="flex-grow flex flex-col space-y-6">
+            <div className="flex-grow flex flex-col">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 ml-2">Sanitized Vector</h3>
+              <div className="flex-grow bg-[#e8eef2] rounded-3xl shadow-[inset_6px_6px_12px_#c5cad5,inset_-6px_-6px_12px_#ffffff] p-6 font-mono text-sm text-slate-600 min-h-[100px]">
+                {result ? renderHighlightedText(result.sanitized_prompt) : <span className="text-slate-400 italic">Awaiting secure payload...</span>}
+              </div>
             </div>
 
-            <h3 className="text-lg font-semibold mb-2 text-gray-400">2. LLM Response</h3>
-            <div className="bg-gray-800 p-4 rounded font-mono text-sm flex-grow border border-gray-700">
-              {result ? result.llm_response : <span className="text-gray-600">Waiting for input...</span>}
+            <div className="flex-grow flex flex-col">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 ml-2">AI Response</h3>
+              <div className="flex-grow bg-[#e8eef2] rounded-3xl shadow-[inset_6px_6px_12px_#c5cad5,inset_-6px_-6px_12px_#ffffff] p-6 font-mono text-sm text-slate-600 min-h-[100px]">
+                {result ? result.llm_response : <span className="text-slate-400 italic">Awaiting inference...</span>}
+              </div>
             </div>
           </div>
+
         </section>
       </main>
     </div>

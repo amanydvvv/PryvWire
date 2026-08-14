@@ -62,10 +62,17 @@ async def process_secure_prompt(request: SecurityRequest, background_tasks: Back
 
     try:
         # 1. Intercept & Analyze
-        results = analyzer.analyze(text=raw_text, entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON"], language='en')
+        results = analyzer.analyze(text=raw_text, entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"], language='en')
         
-        # 2. Redact
-        anonymized = anonymizer.anonymize(text=raw_text, analyzer_results=results)
+        # 2. Redact with clear UI tags
+        from presidio_anonymizer.entities import OperatorConfig
+        operators = {
+            "DEFAULT": OperatorConfig("replace", {"new_value": "<REDACTED>"})
+        }
+        for entity in ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"]:
+            operators[entity] = OperatorConfig("replace", {"new_value": f"[REDACTED: {entity}]"})
+            
+        anonymized = anonymizer.anonymize(text=raw_text, analyzer_results=results, operators=operators)
         safe_prompt = anonymized.text
         
         # Extract metadata for logging
