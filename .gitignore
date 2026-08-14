@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
+
+# Agent configuration & internal skills
+.agents/
+.agent/
