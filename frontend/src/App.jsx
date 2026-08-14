@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Component, useRef } from 'react'
-import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion'
+import React, { useState, useEffect, Component } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -8,33 +8,34 @@ import {
   Check, 
   Terminal, 
   Sparkles, 
-  ArrowRight, 
+  ArrowUpRight, 
   RefreshCw, 
   Lock, 
   Activity,
   Code2,
-  Eye,
   Sliders,
-  CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Cpu,
+  Layers,
+  Database
 } from 'lucide-react'
 
 const API_BASE_URL = 'https://pryvwire.onrender.com';
 
-// Sample enterprise prompt presets for instantaneous recruiter testing
+// Sample enterprise prompt presets
 const PRESETS = [
   {
-    label: "Healthcare Record",
+    label: "Healthcare Patient Record",
     icon: "🏥",
     text: "Patient Sarah Jenkins (DOB 1984-05-12, SSN 042-99-1823) contacted us via sarah.jenkins@healthfirst.org or phone (415) 555-0199 regarding prescription refill authorization."
   },
   {
-    label: "Financial Wire",
+    label: "Executive Financial Wire",
     icon: "💳",
     text: "Authorize wire transfer of $45,000 for executive Michael Vance (SSN 987-65-4321). Confirmation email michael.vance@vancecapital.com or cell +1-202-555-0143. Card on file: 4532-8921-0034-8812."
   },
   {
-    label: "HR Payroll",
+    label: "Confidential HR Payroll",
     icon: "💼",
     text: "Update direct deposit for employee David Chen (dchen@acmecorp.com, 555-839-2011). Route monthly compensation to account ending in 8831."
   }
@@ -52,23 +53,25 @@ class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("UI Error Boundary:", error, errorInfo);
+    console.error("UI Error Boundary caught error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-zinc-900/80 border border-red-500/30 rounded-2xl p-6 text-center backdrop-blur-xl">
-            <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-            <h2 className="text-lg font-semibold text-zinc-100 mb-1">Application Exception</h2>
-            <p className="text-zinc-400 text-xs font-mono mb-4">{this.state.error?.toString()}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-xl text-xs font-medium transition-colors"
-            >
-              Reload Interface
-            </button>
+        <div className="min-h-[100dvh] bg-[#06070a] text-zinc-100 flex items-center justify-center p-6">
+          <div className="p-2 rounded-[2rem] bg-white/[0.03] border border-white/[0.08] shadow-2xl max-w-md w-full">
+            <div className="bg-[#0b0c10] border border-white/[0.06] rounded-[calc(2rem-0.5rem)] p-6 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)]">
+              <AlertCircle className="w-9 h-9 text-rose-400 mx-auto mb-3" />
+              <h2 className="text-base font-semibold text-zinc-100 mb-1">Application Exception</h2>
+              <p className="text-zinc-400 text-xs font-mono mb-4">{this.state.error?.toString()}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-full text-xs font-medium transition-colors border border-white/10"
+              >
+                Reload Interface
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -85,13 +88,12 @@ function AnimatedCounter({ value, suffix = "" }) {
     let start = displayValue;
     const end = value;
     if (start === end) return;
-    const duration = 600;
+    const duration = 500;
     const startTime = performance.now();
 
     const update = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out expo
       const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
       const current = Math.round(start + (end - start) * ease);
       setDisplayValue(current);
@@ -113,9 +115,8 @@ function MainApp() {
   const [error, setError] = useState(null)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
   const [copiedResponse, setCopiedResponse] = useState(false)
-  const [activeTab, setActiveTab] = useState('visual') // 'visual' | 'json'
 
-  // Live Metrics & Health State
+  // Telemetry & Health State
   const [metrics, setMetrics] = useState({
     total_requests: 0,
     total_threats_blocked: 0,
@@ -123,7 +124,6 @@ function MainApp() {
     circuit_breaker: { state: "CLOSED" }
   });
   const [healthStatus, setHealthStatus] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [displayedLlmResponse, setDisplayedLlmResponse] = useState('');
 
   // Fetch telemetry & readiness
@@ -136,7 +136,6 @@ function MainApp() {
 
       if (healthRes) setHealthStatus(healthRes);
       if (metricsRes) setMetrics(metricsRes);
-      setLastUpdated(new Date().toLocaleTimeString());
     } catch (e) {
       console.error("Telemetry sync error:", e);
     }
@@ -237,10 +236,10 @@ function MainApp() {
         return (
           <motion.span 
             key={index}
-            initial={{ scale: 0.85, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 28 }}
-            className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded-md border font-semibold mx-1 ${colorClass}`}
+            transition={{ type: "spring", stiffness: 450, damping: 25 }}
+            className={`inline-flex items-center gap-1 font-mono text-[11px] px-2.5 py-0.5 rounded-full border font-semibold mx-1 shadow-sm ${colorClass}`}
           >
             <Lock className="w-2.5 h-2.5 opacity-70" />
             {entity}
@@ -254,119 +253,128 @@ function MainApp() {
   const isHealthy = healthStatus && healthStatus.status === "Secure and Operational";
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-zinc-100 antialiased font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden flex flex-col items-center">
+    <div className="min-h-[100dvh] bg-[#06070a] text-zinc-100 antialiased font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden flex flex-col items-center justify-between">
       
-      {/* Subtle Background Radial Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
+      {/* Background Ambient Radial Lighting */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-b from-indigo-500/12 via-violet-500/5 to-transparent blur-[120px] pointer-events-none -z-10" />
 
       {/* Screen Reader Live Region */}
       <div className="sr-only" aria-live="polite">
         {loading ? "Sanitizing payload..." : result ? `Sanitization complete. ${result.metrics.threats_intercepted} threats intercepted.` : error ? `Error: ${error}` : "Ready"}
       </div>
 
-      <div className="w-full max-w-6xl px-4 sm:px-6 py-8 flex flex-col gap-6">
+      <div className="w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
 
-        {/* --- Top Navigation / Brand Header --- */}
+        {/* --- Fluid Island Header --- */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.06]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-1 ring-white/20">
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-white">
+                <h1 className="text-xl font-bold tracking-tight text-white flex items-center">
                   Pryv<span className="text-indigo-400">Wire</span>
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-white/[0.05] border border-white/[0.08] text-zinc-400">
                   v1.0-prod
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 font-medium">Zero-Retention PII Sanitization Gateway</p>
+              <p className="text-xs text-zinc-400 font-medium tracking-tight">Zero-Retention PII Sanitization Gateway</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-white/[0.08] shadow-sm backdrop-blur-md"
-            >
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/80 border border-white/[0.08] shadow-sm backdrop-blur-md">
               <span className="relative flex h-2 w-2">
                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${isHealthy ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
               </span>
-              <span className="text-[11px] font-medium text-zinc-300">
+              <span className="text-[11px] font-semibold text-zinc-300">
                 {isHealthy ? 'Gateway Active' : healthStatus ? 'Degraded Mode' : 'Connecting...'}
               </span>
-            </motion.div>
+            </div>
 
             <a 
               href={`${API_BASE_URL}/docs`}
               target="_blank" 
               rel="noreferrer"
-              className="text-xs font-mono text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-full bg-zinc-900/50 border border-white/[0.06] hover:border-white/[0.15] transition-all flex items-center gap-1.5"
+              className="text-xs font-mono text-zinc-300 hover:text-white px-3.5 py-1.5 rounded-full bg-zinc-900/60 hover:bg-zinc-800 border border-white/[0.08] hover:border-white/[0.2] transition-all flex items-center gap-1.5 shadow-sm"
             >
-              <Terminal className="w-3 h-3 text-indigo-400" />
+              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
               API Docs
             </a>
           </div>
         </header>
 
-        {/* --- Live Telemetry Metrics Row --- */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* --- Asymmetrical Bento Stat Cards (Double-Bezel Architecture) --- */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
           
-          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium tracking-wide uppercase">Threats Intercepted</span>
-              <ShieldAlert className="w-4 h-4 text-indigo-400" />
+          {/* Card 1: Threats Blocked */}
+          <div className="p-1 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] hover:border-indigo-500/30 transition-all duration-300 shadow-xl">
+            <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold tracking-wider uppercase">Threats Intercepted</span>
+                <ShieldAlert className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-white tracking-tight">
+                <AnimatedCounter value={result ? result.metrics.threats_intercepted : metrics.total_threats_blocked} />
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono mt-1">Zero PII Leaked</span>
             </div>
-            <div className="text-2xl font-bold font-mono text-white tracking-tight">
-              <AnimatedCounter value={result ? result.metrics.threats_intercepted : metrics.total_threats_blocked} />
-            </div>
-            <span className="text-[10px] text-zinc-400 font-mono mt-1">Zero PII Leaked</span>
           </div>
 
-          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium tracking-wide uppercase">Pipeline Latency</span>
-              <Zap className="w-4 h-4 text-amber-400" />
+          {/* Card 2: Pipeline Latency */}
+          <div className="p-1 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] hover:border-amber-500/30 transition-all duration-300 shadow-xl">
+            <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold tracking-wider uppercase">Pipeline Latency</span>
+                <Zap className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-white tracking-tight">
+                <AnimatedCounter 
+                  value={result ? result.metrics.processing_time_ms : Math.round(metrics.avg_processing_time_ms)} 
+                  suffix="ms" 
+                />
+              </div>
+              <span className="text-[10px] text-emerald-400 font-mono mt-1">Sub-50ms NER Target</span>
             </div>
-            <div className="text-2xl font-bold font-mono text-white tracking-tight">
-              <AnimatedCounter 
-                value={result ? result.metrics.processing_time_ms : Math.round(metrics.avg_processing_time_ms)} 
-                suffix="ms" 
-              />
-            </div>
-            <span className="text-[10px] text-emerald-400 font-mono mt-1">Sub-50ms NER Target</span>
           </div>
 
-          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium tracking-wide uppercase">Audit Requests</span>
-              <Activity className="w-4 h-4 text-emerald-400" />
+          {/* Card 3: Total Requests */}
+          <div className="p-1 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] hover:border-emerald-500/30 transition-all duration-300 shadow-xl">
+            <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold tracking-wider uppercase">Audit Requests</span>
+                <Activity className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-white tracking-tight">
+                <AnimatedCounter value={metrics.total_requests} />
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono mt-1">Async Non-Blocking</span>
             </div>
-            <div className="text-2xl font-bold font-mono text-white tracking-tight">
-              <AnimatedCounter value={metrics.total_requests} />
-            </div>
-            <span className="text-[10px] text-zinc-400 font-mono mt-1">Async Non-Blocking</span>
           </div>
 
-          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-[11px] font-medium tracking-wide uppercase">LLM Engine</span>
-              <Sparkles className="w-4 h-4 text-purple-400" />
+          {/* Card 4: Model Engine */}
+          <div className="p-1 rounded-[1.5rem] bg-white/[0.03] border border-white/[0.07] hover:border-purple-500/30 transition-all duration-300 shadow-xl">
+            <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(1.5rem-0.25rem)] p-4 flex flex-col justify-between h-full shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold tracking-wider uppercase">LLM Engine</span>
+                <Sparkles className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="text-base font-semibold font-mono text-white truncate">
+                llama-3.1-8b
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono mt-1">Groq LPUs • Isolated</span>
             </div>
-            <div className="text-base font-semibold font-mono text-white truncate">
-              llama-3.1-8b
-            </div>
-            <span className="text-[10px] text-zinc-400 font-mono mt-1">Groq LPUs • Isolated</span>
           </div>
 
         </section>
 
         {/* --- Quick Scenario Presets --- */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs text-zinc-400">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0">
-            <Sliders className="w-3 h-3" /> Sample Scenarios:
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs text-zinc-400 scrollbar-none">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0 mr-1">
+            <Sliders className="w-3 h-3" /> Quick Presets:
           </span>
           {PRESETS.map((preset, idx) => (
             <motion.button
@@ -379,7 +387,7 @@ function MainApp() {
                 setResult(null);
                 setError(null);
               }}
-              className="px-3 py-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/[0.08] hover:border-indigo-500/40 text-zinc-300 hover:text-white transition-all text-xs flex items-center gap-1.5 shrink-0"
+              className="px-3.5 py-1.5 rounded-full bg-zinc-900/70 hover:bg-zinc-800 border border-white/[0.08] hover:border-indigo-500/40 text-zinc-300 hover:text-white transition-all text-xs flex items-center gap-1.5 shrink-0 shadow-sm"
             >
               <span>{preset.icon}</span>
               <span>{preset.label}</span>
@@ -390,162 +398,173 @@ function MainApp() {
         {/* --- Main Interactive Console Grid --- */}
         <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-          {/* Left Column: Input Payload Editor (5 cols) */}
-          <section className="lg:col-span-5 flex flex-col gap-4 bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Code2 className="w-3.5 h-3.5 text-indigo-400" />
-                Raw Inbound Payload
-              </label>
-              <span className="text-[11px] font-mono text-zinc-400">
-                {prompt.length} / 50,000 bytes
-              </span>
-            </div>
+          {/* Left Column: Input Payload Editor (Double Bezel) */}
+          <section className="lg:col-span-5 p-1 rounded-[2rem] bg-white/[0.03] border border-white/[0.08] shadow-2xl">
+            <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(2rem-0.25rem)] p-5 sm:p-6 flex flex-col gap-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                  Inbound Payload
+                </label>
+                <span className="text-[11px] font-mono text-zinc-400">
+                  {prompt.length} / 50,000 bytes
+                </span>
+              </div>
 
-            <div className="relative">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Enter prompt containing personal identifiers (e.g. Names, SSNs, Emails, Phone Numbers, Credit Cards)..."
-                rows={9}
-                className="w-full bg-zinc-950/70 text-zinc-200 placeholder-zinc-400 text-xs sm:text-sm font-mono rounded-xl p-4 border border-white/[0.06] focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 outline-none transition-all resize-none"
-              />
-            </div>
+              <div className="relative">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Enter prompt containing personal identifiers (e.g. Names, SSNs, Emails, Phone Numbers, Credit Cards)..."
+                  rows={9}
+                  className="w-full bg-[#07080b] text-zinc-200 placeholder-zinc-400 text-xs sm:text-sm font-mono rounded-xl p-4 border border-white/[0.06] focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 outline-none transition-all resize-none leading-relaxed"
+                />
+              </div>
 
-            <motion.button
-              whileHover={{ scale: 1.015, y: -1 }}
-              whileTap={{ scale: 0.985 }}
-              transition={{ type: "spring", stiffness: 450, damping: 25 }}
-              onClick={handleSanitize}
-              disabled={loading || !prompt.trim()}
-              className={`w-full py-3.5 rounded-xl font-medium text-xs sm:text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg ${
-                loading || !prompt.trim()
-                  ? 'bg-zinc-800/50 text-zinc-400 border border-white/[0.04] cursor-not-allowed'
-                  : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-500/25 ring-1 ring-white/20'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white/80" />
-                  <span>Sanitizing & Routing to LLM...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Sanitize & Dispatch to LLM</span>
-                  <ArrowRight className="w-3.5 h-3.5 opacity-70" />
-                </>
-              )}
-            </motion.button>
-
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-center gap-2"
+              {/* Nested CTA Button-in-Button Architecture */}
+              <motion.button
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                onClick={handleSanitize}
+                disabled={loading || !prompt.trim()}
+                className={`group w-full py-2.5 pl-5 pr-2.5 rounded-full font-semibold text-xs sm:text-sm tracking-wide transition-all flex items-center justify-between shadow-lg ${
+                  loading || !prompt.trim()
+                    ? 'bg-zinc-800/40 text-zinc-400 border border-white/[0.04] cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-500/25 ring-1 ring-white/20'
+                }`}
               >
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </motion.div>
-            )}
+                <span className="flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white/80" />
+                      <span>Sanitizing & Routing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Sanitize & Dispatch to LLM</span>
+                    </>
+                  )}
+                </span>
+
+                {/* Button-in-Button nested icon pill */}
+                <span className="w-8 h-8 rounded-full bg-black/20 dark:bg-white/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+                  <ArrowUpRight className="w-4 h-4 text-white" />
+                </span>
+              </motion.button>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-center gap-2"
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </div>
           </section>
 
-          {/* Right Column: Sanitized Stream & LLM Reasoning (7 cols) */}
-          <section className="lg:col-span-7 flex flex-col gap-4">
+          {/* Right Column: Sanitized Stream & LLM Reasoning */}
+          <section className="lg:col-span-7 flex flex-col gap-5">
 
-            {/* Stage 1: Sanitized Stream (What reaches LLM) */}
-            <div className="bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
-                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                    Sanitized Vector (Sent to Groq LLM)
-                  </h3>
-                </div>
+            {/* Stage 1: Sanitized Vector */}
+            <div className="p-1 rounded-[2rem] bg-white/[0.03] border border-white/[0.08] shadow-2xl">
+              <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(2rem-0.25rem)] p-5 sm:p-6 flex flex-col gap-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                      Sanitized Vector (Dispatched to Groq)
+                    </h3>
+                  </div>
 
-                <div className="flex items-center gap-2">
                   {result && (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => copyText(result.sanitized_prompt, 'prompt')}
-                      className="px-2.5 py-1 rounded-md bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1 transition-colors"
+                      className="px-3 py-1 rounded-full bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
                     >
                       {copiedPrompt ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                       {copiedPrompt ? "Copied" : "Copy"}
                     </motion.button>
                   )}
                 </div>
-              </div>
 
-              <div className="bg-zinc-950/70 border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-300 min-h-[90px] leading-relaxed flex items-center">
-                {loading ? (
-                  <div className="w-full space-y-2 animate-pulse">
-                    <div className="h-3.5 bg-zinc-800 rounded w-3/4"></div>
-                    <div className="h-3.5 bg-zinc-800 rounded w-1/2"></div>
-                  </div>
-                ) : result ? (
-                  <div className="w-full break-words">
-                    {renderHighlightedText(result.sanitized_prompt)}
-                  </div>
-                ) : (
-                  <span className="text-zinc-400 italic text-xs">
-                    Payload will appear here with redacted PII tokens once dispatched...
-                  </span>
-                )}
-              </div>
-
-              {result && (
-                <div className="flex items-center gap-2 flex-wrap text-[11px] text-zinc-400 pt-1 border-t border-white/[0.04]">
-                  <span className="font-mono text-indigo-400 font-semibold">
-                    {result.metrics.threats_intercepted} threats intercepted:
-                  </span>
-                  {result.metrics.entities_blocked.map((e, idx) => (
-                    <span key={idx} className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-300 font-mono text-[10px]">
-                      {e}
+                <div className="bg-[#07080b] border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-300 min-h-[90px] leading-relaxed flex items-center">
+                  {loading ? (
+                    <div className="w-full space-y-2 animate-pulse">
+                      <div className="h-3.5 bg-zinc-800/60 rounded-md w-3/4"></div>
+                      <div className="h-3.5 bg-zinc-800/60 rounded-md w-1/2"></div>
+                    </div>
+                  ) : result ? (
+                    <div className="w-full break-words">
+                      {renderHighlightedText(result.sanitized_prompt)}
+                    </div>
+                  ) : (
+                    <span className="text-zinc-400 italic text-xs">
+                      Payload will appear here with redacted PII tokens once sanitized...
                     </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Stage 2: Groq LLaMA 3.1 Inference Output */}
-            <div className="bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-400" />
-                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                    Groq LLM Response (Safe Inference)
-                  </h3>
+                  )}
                 </div>
 
                 {result && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => copyText(result.llm_response, 'response')}
-                    className="px-2.5 py-1 rounded-md bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1 transition-colors"
-                  >
-                    {copiedResponse ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    {copiedResponse ? "Copied" : "Copy"}
-                  </motion.button>
+                  <div className="flex items-center gap-2 flex-wrap text-[11px] text-zinc-400 pt-2 border-t border-white/[0.04]">
+                    <span className="font-mono text-indigo-400 font-semibold">
+                      {result.metrics.threats_intercepted} threats intercepted:
+                    </span>
+                    {result.metrics.entities_blocked.map((e, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded-full bg-zinc-800/80 border border-white/5 text-zinc-300 font-mono text-[10px]">
+                        {e}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
+            </div>
 
-              <div className="bg-zinc-950/70 border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-200 min-h-[120px] max-h-[220px] overflow-y-auto leading-relaxed">
-                {loading ? (
-                  <div className="w-full space-y-2 animate-pulse">
-                    <div className="h-3.5 bg-zinc-800 rounded w-full"></div>
-                    <div className="h-3.5 bg-zinc-800 rounded w-4/5"></div>
-                    <div className="h-3.5 bg-zinc-800 rounded w-2/3"></div>
+            {/* Stage 2: Groq LLaMA 3.1 Inference Output */}
+            <div className="p-1 rounded-[2rem] bg-white/[0.03] border border-white/[0.08] shadow-2xl">
+              <div className="bg-[#0b0c10] border border-white/[0.04] rounded-[calc(2rem-0.25rem)] p-5 sm:p-6 flex flex-col gap-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-400" />
+                    <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                      Groq LLaMA 3.1 Response (Safe Inference)
+                    </h3>
                   </div>
-                ) : displayedLlmResponse ? (
-                  <div className="whitespace-pre-wrap">{displayedLlmResponse}</div>
-                ) : (
-                  <span className="text-zinc-400 italic text-xs">
-                    LLM response from Groq LLaMA 3.1 will stream here...
-                  </span>
-                )}
+
+                  {result && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => copyText(result.llm_response, 'response')}
+                      className="px-3 py-1 rounded-full bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                    >
+                      {copiedResponse ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedResponse ? "Copied" : "Copy"}
+                    </motion.button>
+                  )}
+                </div>
+
+                <div className="bg-[#07080b] border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-200 min-h-[120px] max-h-[220px] overflow-y-auto leading-relaxed">
+                  {loading ? (
+                    <div className="w-full space-y-2 animate-pulse">
+                      <div className="h-3.5 bg-zinc-800/60 rounded-md w-full"></div>
+                      <div className="h-3.5 bg-zinc-800/60 rounded-md w-4/5"></div>
+                      <div className="h-3.5 bg-zinc-800/60 rounded-md w-2/3"></div>
+                    </div>
+                  ) : displayedLlmResponse ? (
+                    <div className="whitespace-pre-wrap">{displayedLlmResponse}</div>
+                  ) : (
+                    <span className="text-zinc-400 italic text-xs">
+                      LLM response from Groq LLaMA 3.1 will stream here...
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -553,14 +572,16 @@ function MainApp() {
 
         </main>
 
-        {/* --- Bottom Footer Info --- */}
+        {/* --- Bottom Compliance Footer --- */}
         <footer className="pt-4 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between text-zinc-400 text-xs gap-2">
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Zero-Retention Architecture • No raw PII persisted in database</span>
+            <span>Zero-Retention Architecture • No raw PII persisted to database</span>
           </div>
-          <div className="font-mono text-[11px] text-zinc-400">
-            Render (FastAPI) + Vercel (React)
+          <div className="font-mono text-[11px] text-zinc-400 flex items-center gap-2">
+            <span>FastAPI (Render)</span>
+            <span>•</span>
+            <span>React + Vite (Vercel)</span>
           </div>
         </footer>
 
