@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     GROQ_MAX_RETRIES: int = 2
 
     # Authentication & Security
-    API_KEY: str = "ciphergate-demo-secret-key"
+    API_KEY: str = "pryvwire-demo-secret-key"
     REQUIRE_API_KEY: bool = False  # Set True to enforce X-API-Key header strictly
 
     # Rate Limiting & Payload Limits

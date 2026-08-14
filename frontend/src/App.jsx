@@ -114,9 +114,9 @@ function MainApp() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-API-Key': 'ciphergate-demo-secret-key'
+          'X-API-Key': 'pryvwire-demo-secret-key'
         },
-        body: JSON.stringify({ user_prompt: prompt, client_id: 'ciphergate-ui' })
+        body: JSON.stringify({ user_prompt: prompt, client_id: 'pryvwire-web' })
       });
 
       const data = await response.json();
@@ -183,8 +183,8 @@ function MainApp() {
       {/* Header & Status Indicator */}
       <header className="w-full max-w-5xl mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-700 tracking-tight">CipherGate</h1>
-          <p className="text-slate-500 font-medium text-sm sm:text-base">Zero-Retention PII Security Middleware</p>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-700 tracking-tight">Pryv<span className="text-indigo-500">Wire</span></h1>
+          <p className="text-slate-500 font-medium text-sm sm:text-base">Zero-Retention Security Gateway</p>
         </div>
 
         <div className="flex items-center space-x-3 bg-[#e8eef2] px-4 py-2 rounded-2xl shadow-[4px_4px_8px_#c5cad5,-4px_-4px_8px_#ffffff] border border-white/50">

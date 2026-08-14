@@ -37,14 +37,14 @@ class RequestIdFilter(logging.Filter):
             record.request_id = "system"
         return True
 
-logger = logging.getLogger("pii_security_middleware")
+logger = logging.getLogger("pryvwire_security_middleware")
 logger.addFilter(RequestIdFilter())
 
 # Initialize Rate Limiter
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT])
 
 app = FastAPI(
-    title="CipherGate | Enterprise PII Security Middleware",
+    title="PryvWire Security Gateway",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
