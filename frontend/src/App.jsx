@@ -1,470 +1,578 @@
-import React, { useState, useEffect, useRef, Component } from 'react'
-import { motion, AnimatePresence, useInView, useMotionValue, useSpring } from 'framer-motion'
+import React, { useState, useEffect, Component, useRef } from 'react'
+import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion'
+import { 
+  ShieldCheck, 
+  ShieldAlert, 
+  Zap, 
+  Copy, 
+  Check, 
+  Terminal, 
+  Sparkles, 
+  ArrowRight, 
+  RefreshCw, 
+  Lock, 
+  Activity,
+  Code2,
+  Eye,
+  Sliders,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react'
 
 const API_BASE_URL = 'https://pryvwire.onrender.com';
 
-// ─── Error Boundary ────────────────────────────────────────────────────────────
+// Sample enterprise prompt presets for instantaneous recruiter testing
+const PRESETS = [
+  {
+    label: "Healthcare Record",
+    icon: "🏥",
+    text: "Patient Sarah Jenkins (DOB 1984-05-12, SSN 042-99-1823) contacted us via sarah.jenkins@healthfirst.org or phone (415) 555-0199 regarding prescription refill authorization."
+  },
+  {
+    label: "Financial Wire",
+    icon: "💳",
+    text: "Authorize wire transfer of $45,000 for executive Michael Vance (SSN 987-65-4321). Confirmation email michael.vance@vancecapital.com or cell +1-202-555-0143. Card on file: 4532-8921-0034-8812."
+  },
+  {
+    label: "HR Payroll",
+    icon: "💼",
+    text: "Update direct deposit for employee David Chen (dchen@acmecorp.com, 555-839-2011). Route monthly compensation to account ending in 8831."
+  }
+];
+
+// Error Boundary Component
 class ErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("UI Error Boundary:", error, errorInfo);
+  }
+
   render() {
-    if (this.state.hasError) return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-8">
-        <div className="outer-shell p-8 max-w-md text-center">
-          <div className="inner-core p-8">
-            <div className="text-red-400 text-sm font-mono mb-3">SYSTEM EXCEPTION</div>
-            <p className="text-white/50 text-sm mb-6">{this.state.error?.toString()}</p>
-            <button onClick={() => window.location.reload()} className="pill-btn">
-              Reinitialize
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-zinc-900/80 border border-red-500/30 rounded-2xl p-6 text-center backdrop-blur-xl">
+            <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <h2 className="text-lg font-semibold text-zinc-100 mb-1">Application Exception</h2>
+            <p className="text-zinc-400 text-xs font-mono mb-4">{this.state.error?.toString()}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 rounded-xl text-xs font-medium transition-colors"
+            >
+              Reload Interface
             </button>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
     return this.props.children;
   }
 }
 
-// ─── Animated Counter ──────────────────────────────────────────────────────────
-function AnimatedNumber({ value, suffix = '' }) {
-  const [display, setDisplay] = useState(0);
+// Animated Spring Number Counter
+function AnimatedCounter({ value, suffix = "" }) {
+  const [displayValue, setDisplayValue] = useState(value);
+
   useEffect(() => {
-    const start = 0; const end = parseFloat(value) || 0;
-    if (end === 0) { setDisplay(0); return; }
-    const duration = 900; const startTime = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - startTime;
+    let start = displayValue;
+    const end = value;
+    if (start === end) return;
+    const duration = 600;
+    const startTime = performance.now();
+
+    const update = (now) => {
+      const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(ease * end * 10) / 10);
-      if (progress < 1) requestAnimationFrame(tick);
+      // Ease out expo
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      const current = Math.round(start + (end - start) * ease);
+      setDisplayValue(current);
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      }
     };
-    requestAnimationFrame(tick);
+
+    requestAnimationFrame(update);
   }, [value]);
-  return <>{display}{suffix}</>;
+
+  return <span>{displayValue}{suffix}</span>;
 }
 
-// ─── Redaction Badge ───────────────────────────────────────────────────────────
-const ENTITY_COLORS = {
-  EMAIL_ADDRESS: { bg: 'bg-violet-500/15', border: 'border-violet-500/30', text: 'text-violet-300', dot: 'bg-violet-400' },
-  PERSON:        { bg: 'bg-sky-500/15',    border: 'border-sky-500/30',    text: 'text-sky-300',    dot: 'bg-sky-400' },
-  PHONE_NUMBER:  { bg: 'bg-emerald-500/15',border: 'border-emerald-500/30',text: 'text-emerald-300',dot: 'bg-emerald-400' },
-  US_SSN:        { bg: 'bg-red-500/15',    border: 'border-red-500/30',    text: 'text-red-300',    dot: 'bg-red-400' },
-  CREDIT_CARD:   { bg: 'bg-amber-500/15',  border: 'border-amber-500/30',  text: 'text-amber-300',  dot: 'bg-amber-400' },
-};
-const DEFAULT_ENTITY = { bg: 'bg-indigo-500/15', border: 'border-indigo-500/30', text: 'text-indigo-300', dot: 'bg-indigo-400' };
-
-function RedactionBadge({ entity, index }) {
-  const c = ENTITY_COLORS[entity] || DEFAULT_ENTITY;
-  return (
-    <motion.span
-      initial={{ opacity: 0, scale: 0.8, y: 4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ delay: index * 0.06, type: 'spring', stiffness: 400, damping: 25 }}
-      className={`inline-flex items-center gap-1.5 ${c.bg} border ${c.border} ${c.text} px-2.5 py-0.5 rounded-full font-mono text-[11px] font-semibold mx-0.5 my-0.5`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot} flex-shrink-0`} />
-      {entity}
-    </motion.span>
-  );
-}
-
-function renderHighlightedText(text) {
-  const parts = text.split(/(\[REDACTED: [A-Z_]+\])/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('[REDACTED:')) {
-      const entity = part.replace('[REDACTED: ', '').replace(']', '');
-      return <RedactionBadge key={i} entity={entity} index={i} />;
-    }
-    return <span key={i} className="text-white/70">{part}</span>;
-  });
-}
-
-// ─── Magnetic Button ───────────────────────────────────────────────────────────
-function MagneticButton({ children, onClick, disabled, loading }) {
-  const ref = useRef(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 300, damping: 20 });
-  const springY = useSpring(y, { stiffness: 300, damping: 20 });
-
-  const handleMouseMove = (e) => {
-    if (disabled) return;
-    const rect = ref.current.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    x.set((e.clientX - cx) * 0.15);
-    y.set((e.clientY - cy) * 0.15);
-  };
-  const handleMouseLeave = () => { x.set(0); y.set(0); };
-
-  return (
-    <motion.button
-      ref={ref}
-      style={{ x: springX, y: springY }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onClick={onClick}
-      disabled={disabled}
-      whileTap={{ scale: disabled ? 1 : 0.97 }}
-      className={`relative w-full py-4 rounded-2xl font-semibold text-sm tracking-wide transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden group ${
-        disabled
-          ? 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
-          : 'bg-indigo-500 text-white border border-indigo-400/50 hover:bg-indigo-400 shadow-[0_0_32px_rgba(99,102,241,0.25)] hover:shadow-[0_0_48px_rgba(99,102,241,0.4)]'
-      }`}
-    >
-      {!disabled && (
-        <motion.span
-          className="absolute inset-0 bg-gradient-to-r from-indigo-400/0 via-white/10 to-indigo-400/0"
-          initial={{ x: '-100%' }}
-          animate={loading ? {} : {}}
-          whileHover={{ x: '100%' }}
-          transition={{ duration: 0.6, ease: 'easeInOut' }}
-        />
-      )}
-      <span className="relative flex items-center justify-center gap-2.5">
-        {loading ? (
-          <>
-            <motion.span
-              className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-            />
-            <span>Intercepting & redacting…</span>
-          </>
-        ) : (
-          <>
-            <span>Sanitize & Execute</span>
-            <span className="w-6 h-6 rounded-full bg-white/15 flex items-center justify-center group-hover:translate-x-0.5 group-hover:-translate-y-px transition-transform duration-300">
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M2 8L8 2M8 2H4M8 2V6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </span>
-          </>
-        )}
-      </span>
-    </motion.button>
-  );
-}
-
-// ─── Bento Metric Card ─────────────────────────────────────────────────────────
-function MetricCard({ label, value, suffix, sub, accent, delay = 0 }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-20px' });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ delay, duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
-      className="outer-shell h-full"
-    >
-      <div className="inner-core p-5 h-full flex flex-col justify-between">
-        <span className="eyebrow">{label}</span>
-        <div>
-          <div className={`text-3xl font-bold font-mono tracking-tight ${accent}`}>
-            {inView ? <AnimatedNumber value={value} suffix={suffix} /> : '0'}
-          </div>
-          <div className="text-white/30 text-[11px] mt-1">{sub}</div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Main App ──────────────────────────────────────────────────────────────────
 function MainApp() {
-  const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const [copiedResponse, setCopiedResponse] = useState(false);
-  const [metrics, setMetrics] = useState({ total_requests: 0, total_threats_blocked: 0, avg_processing_time_ms: 0, circuit_breaker: { state: 'CLOSED' } });
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [copiedPrompt, setCopiedPrompt] = useState(false)
+  const [copiedResponse, setCopiedResponse] = useState(false)
+  const [activeTab, setActiveTab] = useState('visual') // 'visual' | 'json'
+
+  // Live Metrics & Health State
+  const [metrics, setMetrics] = useState({
+    total_requests: 0,
+    total_threats_blocked: 0,
+    avg_processing_time_ms: 0,
+    circuit_breaker: { state: "CLOSED" }
+  });
   const [healthStatus, setHealthStatus] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [displayedLlm, setDisplayedLlm] = useState('');
+  const [displayedLlmResponse, setDisplayedLlmResponse] = useState('');
 
+  // Fetch telemetry & readiness
   const fetchTelemetry = async () => {
     try {
-      const [h, m] = await Promise.all([
+      const [healthRes, metricsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/health`).then(r => r.json()).catch(() => null),
-        fetch(`${API_BASE_URL}/metrics`).then(r => r.json()).catch(() => null),
+        fetch(`${API_BASE_URL}/metrics`).then(r => r.json()).catch(() => null)
       ]);
-      if (h) setHealthStatus(h);
-      if (m) setMetrics(m);
+
+      if (healthRes) setHealthStatus(healthRes);
+      if (metricsRes) setMetrics(metricsRes);
       setLastUpdated(new Date().toLocaleTimeString());
-    } catch {}
+    } catch (e) {
+      console.error("Telemetry sync error:", e);
+    }
   };
 
-  useEffect(() => { fetchTelemetry(); const t = setInterval(fetchTelemetry, 5000); return () => clearInterval(t); }, []);
-
   useEffect(() => {
-    if (!result?.llm_response) { setDisplayedLlm(''); return; }
-    let i = 0; const text = result.llm_response; setDisplayedLlm('');
-    const t = setInterval(() => {
-      if (i < text.length) { setDisplayedLlm(p => p + text.charAt(i)); i++; }
-      else clearInterval(t);
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Typewriter effect for LLM output
+  useEffect(() => {
+    if (!result?.llm_response) {
+      setDisplayedLlmResponse('');
+      return;
+    }
+    let i = 0;
+    const text = result.llm_response;
+    setDisplayedLlmResponse('');
+    
+    const timer = setInterval(() => {
+      if (i < text.length) {
+        setDisplayedLlmResponse(prev => prev + text.charAt(i));
+        i++;
+      } else {
+        clearInterval(timer);
+      }
     }, 12);
-    return () => clearInterval(t);
+
+    return () => clearInterval(timer);
   }, [result]);
 
   const handleSanitize = async () => {
     if (!prompt.trim()) return;
-    setLoading(true); setError(null); setResult(null);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/sanitize`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sanitize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': 'pryvwire-demo-secret-key' },
-        body: JSON.stringify({ user_prompt: prompt, client_id: 'pryvwire-web' }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-API-Key': 'pryvwire-demo-secret-key'
+        },
+        body: JSON.stringify({ user_prompt: prompt, client_id: 'pryvwire-web' })
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 429) throw new Error('Rate limit exceeded (30 req/min).');
-        if (res.status === 413) throw new Error('Payload too large (50KB max).');
-        if (res.status === 401) throw new Error('Unauthorized: Invalid API key.');
-        throw new Error(data.detail || 'Security middleware blocked the request.');
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit reached (30 req/min). System protected.');
+        } else if (response.status === 413) {
+          throw new Error('Payload too large. Exceeds 50KB security threshold.');
+        } else if (response.status === 401) {
+          throw new Error('Unauthorized: Invalid X-API-Key header.');
+        } else {
+          throw new Error(data.detail || 'Security Middleware Blocked Request');
+        }
       }
-      setResult(data.data); fetchTelemetry();
-    } catch (err) { setError(err.message); fetchTelemetry(); }
-    finally { setLoading(false); }
+
+      setResult(data.data);
+      fetchTelemetry();
+    } catch (err) {
+      setError(err.message);
+      fetchTelemetry();
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const copy = (text, which) => {
+  const copyText = (text, type) => {
     navigator.clipboard.writeText(text);
-    if (which === 'p') { setCopiedPrompt(true); setTimeout(() => setCopiedPrompt(false), 2000); }
-    else { setCopiedResponse(true); setTimeout(() => setCopiedResponse(false), 2000); }
+    if (type === 'prompt') {
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    } else {
+      setCopiedResponse(true);
+      setTimeout(() => setCopiedResponse(false), 2000);
+    }
   };
 
-  const isHealthy = healthStatus?.status === 'Secure and Operational';
-  const cbState = metrics.circuit_breaker?.state;
+  // Color-coded entity badges with tactile spring
+  const renderHighlightedText = (text) => {
+    const parts = text.split(/(\[REDACTED: [A-Z_]+\])/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('[REDACTED:')) {
+        const entity = part.replace('[REDACTED: ', '').replace(']', '');
+        
+        let colorClass = "bg-indigo-500/10 text-indigo-300 border-indigo-500/30";
+        if (entity === "PERSON") colorClass = "bg-amber-500/10 text-amber-300 border-amber-500/30";
+        if (entity === "EMAIL_ADDRESS") colorClass = "bg-sky-500/10 text-sky-300 border-sky-500/30";
+        if (entity === "PHONE_NUMBER") colorClass = "bg-emerald-500/10 text-emerald-300 border-emerald-500/30";
+        if (entity === "US_SSN" || entity === "CREDIT_CARD") colorClass = "bg-rose-500/10 text-rose-300 border-rose-500/30";
+
+        return (
+          <motion.span 
+            key={index}
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 500, damping: 28 }}
+            className={`inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded-md border font-semibold mx-1 ${colorClass}`}
+          >
+            <Lock className="w-2.5 h-2.5 opacity-70" />
+            {entity}
+          </motion.span>
+        );
+      }
+      return part;
+    });
+  };
+
+  const isHealthy = healthStatus && healthStatus.status === "Secure and Operational";
 
   return (
-    <div className="min-h-[100dvh] bg-[#050505] text-white font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#090a0f] text-zinc-100 antialiased font-sans selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-hidden flex flex-col items-center">
+      
+      {/* Subtle Background Radial Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[400px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
-      {/* Background mesh gradient orbs */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-indigo-600/10 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-violet-600/8 blur-[100px]" />
-        <div className="absolute top-[40%] left-[60%] w-[30vw] h-[30vw] rounded-full bg-sky-600/5 blur-[80px]" />
-        {/* Noise grain overlay */}
-        <div className="fixed inset-0 opacity-[0.025]" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")',backgroundSize:'200px'}} />
+      {/* Screen Reader Live Region */}
+      <div className="sr-only" aria-live="polite">
+        {loading ? "Sanitizing payload..." : result ? `Sanitization complete. ${result.metrics.threats_intercepted} threats intercepted.` : error ? `Error: ${error}` : "Ready"}
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+      <div className="w-full max-w-6xl px-4 sm:px-6 py-8 flex flex-col gap-6">
 
-        {/* ── Header ── */}
-        <motion.header
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.32, 0.72, 0, 1] }}
-          className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-12"
-        >
-          <div>
-            <div className="eyebrow mb-3">Zero-Retention Security Gateway</div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-none">
-              Pryv<span className="text-indigo-400">Wire</span>
-            </h1>
-          </div>
-
-          {/* Status pill */}
-          <div className="outer-shell">
-            <div className="inner-core px-4 py-2.5 flex items-center gap-3">
-              <motion.span
-                animate={{ scale: isHealthy ? [1, 1.3, 1] : 1, opacity: isHealthy ? [1, 0.5, 1] : 0.5 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`}
-              />
-              <span className="text-xs font-semibold text-white/70">
-                {isHealthy ? 'System Secure' : healthStatus ? 'Degraded' : 'Connecting…'}
-              </span>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                cbState === 'CLOSED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-red-400 border-red-500/30 bg-red-500/10'
-              }`}>
-                CB: {cbState}
-              </span>
-              {lastUpdated && <span className="text-[10px] text-white/25 font-mono hidden sm:block">{lastUpdated}</span>}
+        {/* --- Top Navigation / Brand Header --- */}
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20">
+              <ShieldCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-white">
+                  Pryv<span className="text-indigo-400">Wire</span>
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-white/[0.05] border border-white/[0.08] text-zinc-400">
+                  v1.0-prod
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 font-medium">Zero-Retention PII Sanitization Gateway</p>
             </div>
           </div>
-        </motion.header>
 
-        {/* ── Bento Metrics Grid ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          {[
-            { label: 'Threats Blocked', value: result ? result.metrics.threats_intercepted : metrics.total_threats_blocked, suffix: '', sub: 'PII entities redacted', accent: 'text-indigo-400', delay: 0.05 },
-            { label: 'Total Requests', value: metrics.total_requests, suffix: '', sub: 'All-time sanitizations', accent: 'text-violet-400', delay: 0.1 },
-            { label: 'Avg Latency', value: result ? result.metrics.processing_time_ms : metrics.avg_processing_time_ms, suffix: 'ms', sub: 'End-to-end pipeline', accent: 'text-sky-400', delay: 0.15 },
-            { label: 'Model', value: 0, suffix: '', sub: 'llama-3.1-8b-instant', accent: 'text-emerald-400', delay: 0.2, isLabel: true },
-          ].map((m, i) => (
-            <MetricCard key={i} {...m} value={m.isLabel ? '-' : m.value} />
+          <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+            <motion.div 
+              whileHover={{ scale: 1.02 }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-white/[0.08] shadow-sm backdrop-blur-md"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isHealthy ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isHealthy ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              </span>
+              <span className="text-[11px] font-medium text-zinc-300">
+                {isHealthy ? 'Gateway Active' : healthStatus ? 'Degraded Mode' : 'Connecting...'}
+              </span>
+            </motion.div>
+
+            <a 
+              href={`${API_BASE_URL}/docs`}
+              target="_blank" 
+              rel="noreferrer"
+              className="text-xs font-mono text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-full bg-zinc-900/50 border border-white/[0.06] hover:border-white/[0.15] transition-all flex items-center gap-1.5"
+            >
+              <Terminal className="w-3 h-3 text-indigo-400" />
+              API Docs
+            </a>
+          </div>
+        </header>
+
+        {/* --- Live Telemetry Metrics Row --- */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          
+          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium tracking-wide uppercase">Threats Intercepted</span>
+              <ShieldAlert className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter value={result ? result.metrics.threats_intercepted : metrics.total_threats_blocked} />
+            </div>
+            <span className="text-[10px] text-zinc-400 font-mono mt-1">Zero PII Leaked</span>
+          </div>
+
+          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium tracking-wide uppercase">Pipeline Latency</span>
+              <Zap className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter 
+                value={result ? result.metrics.processing_time_ms : Math.round(metrics.avg_processing_time_ms)} 
+                suffix="ms" 
+              />
+            </div>
+            <span className="text-[10px] text-emerald-400 font-mono mt-1">Sub-50ms NER Target</span>
+          </div>
+
+          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium tracking-wide uppercase">Audit Requests</span>
+              <Activity className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter value={metrics.total_requests} />
+            </div>
+            <span className="text-[10px] text-zinc-400 font-mono mt-1">Async Non-Blocking</span>
+          </div>
+
+          <div className="bg-zinc-900/40 border border-white/[0.07] hover:border-white/[0.15] rounded-2xl p-4 transition-all backdrop-blur-md flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-400 mb-2">
+              <span className="text-[11px] font-medium tracking-wide uppercase">LLM Engine</span>
+              <Sparkles className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-base font-semibold font-mono text-white truncate">
+              llama-3.1-8b
+            </div>
+            <span className="text-[10px] text-zinc-400 font-mono mt-1">Groq LPUs • Isolated</span>
+          </div>
+
+        </section>
+
+        {/* --- Quick Scenario Presets --- */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs text-zinc-400">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0">
+            <Sliders className="w-3 h-3" /> Sample Scenarios:
+          </span>
+          {PRESETS.map((preset, idx) => (
+            <motion.button
+              key={idx}
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 450, damping: 25 }}
+              onClick={() => {
+                setPrompt(preset.text);
+                setResult(null);
+                setError(null);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/[0.08] hover:border-indigo-500/40 text-zinc-300 hover:text-white transition-all text-xs flex items-center gap-1.5 shrink-0"
+            >
+              <span>{preset.icon}</span>
+              <span>{preset.label}</span>
+            </motion.button>
           ))}
         </div>
 
-        {/* ── Main Panel (asymmetric bento) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4">
+        {/* --- Main Interactive Console Grid --- */}
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-          {/* Left: Input */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.7, ease: [0.32, 0.72, 0, 1] }}
-            className="outer-shell"
-          >
-            <div className="inner-core p-6 flex flex-col gap-5">
-              <div className="flex justify-between items-center">
-                <span className="eyebrow">Input Payload</span>
-                <span className="text-[11px] font-mono text-white/20">{prompt.length} / 50,000</span>
+          {/* Left Column: Input Payload Editor (5 cols) */}
+          <section className="lg:col-span-5 flex flex-col gap-4 bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                Raw Inbound Payload
+              </label>
+              <span className="text-[11px] font-mono text-zinc-400">
+                {prompt.length} / 50,000 bytes
+              </span>
+            </div>
+
+            <div className="relative">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Enter prompt containing personal identifiers (e.g. Names, SSNs, Emails, Phone Numbers, Credit Cards)..."
+                rows={9}
+                className="w-full bg-zinc-950/70 text-zinc-200 placeholder-zinc-400 text-xs sm:text-sm font-mono rounded-xl p-4 border border-white/[0.06] focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 outline-none transition-all resize-none"
+              />
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.015, y: -1 }}
+              whileTap={{ scale: 0.985 }}
+              transition={{ type: "spring", stiffness: 450, damping: 25 }}
+              onClick={handleSanitize}
+              disabled={loading || !prompt.trim()}
+              className={`w-full py-3.5 rounded-xl font-medium text-xs sm:text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-lg ${
+                loading || !prompt.trim()
+                  ? 'bg-zinc-800/50 text-zinc-400 border border-white/[0.04] cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-500/25 ring-1 ring-white/20'
+              }`}
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white/80" />
+                  <span>Sanitizing & Routing to LLM...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Sanitize & Dispatch to LLM</span>
+                  <ArrowRight className="w-3.5 h-3.5 opacity-70" />
+                </>
+              )}
+            </motion.button>
+
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </motion.div>
+            )}
+          </section>
+
+          {/* Right Column: Sanitized Stream & LLM Reasoning (7 cols) */}
+          <section className="lg:col-span-7 flex flex-col gap-4">
+
+            {/* Stage 1: Sanitized Stream (What reaches LLM) */}
+            <div className="bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    Sanitized Vector (Sent to Groq LLM)
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {result && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => copyText(result.sanitized_prompt, 'prompt')}
+                      className="px-2.5 py-1 rounded-md bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1 transition-colors"
+                    >
+                      {copiedPrompt ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      {copiedPrompt ? "Copied" : "Copy"}
+                    </motion.button>
+                  )}
+                </div>
               </div>
 
-              <div className="relative">
-                <textarea
-                  className="w-full h-52 bg-black/40 text-white/80 placeholder-white/20 rounded-xl border border-white/8 outline-none p-4 font-mono text-sm resize-none focus:border-indigo-500/50 focus:bg-black/60 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
-                  placeholder={'Contact John Doe at john@acme.io\nor call +1-415-555-0199…'}
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-                {prompt && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="absolute bottom-3 right-3 w-1.5 h-1.5 rounded-full bg-indigo-400"
-                  />
+              <div className="bg-zinc-950/70 border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-300 min-h-[90px] leading-relaxed flex items-center">
+                {loading ? (
+                  <div className="w-full space-y-2 animate-pulse">
+                    <div className="h-3.5 bg-zinc-800 rounded w-3/4"></div>
+                    <div className="h-3.5 bg-zinc-800 rounded w-1/2"></div>
+                  </div>
+                ) : result ? (
+                  <div className="w-full break-words">
+                    {renderHighlightedText(result.sanitized_prompt)}
+                  </div>
+                ) : (
+                  <span className="text-zinc-400 italic text-xs">
+                    Payload will appear here with redacted PII tokens once dispatched...
+                  </span>
                 )}
               </div>
 
-              <MagneticButton onClick={handleSanitize} disabled={loading || !prompt.trim()} loading={loading} />
+              {result && (
+                <div className="flex items-center gap-2 flex-wrap text-[11px] text-zinc-400 pt-1 border-t border-white/[0.04]">
+                  <span className="font-mono text-indigo-400 font-semibold">
+                    {result.metrics.threats_intercepted} threats intercepted:
+                  </span>
+                  {result.metrics.entities_blocked.map((e, idx) => (
+                    <span key={idx} className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-300 font-mono text-[10px]">
+                      {e}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="outer-shell border-red-500/20"
+            {/* Stage 2: Groq LLaMA 3.1 Inference Output */}
+            <div className="bg-zinc-900/30 border border-white/[0.08] rounded-2xl p-5 backdrop-blur-xl shadow-xl flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-400" />
+                  <h3 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    Groq LLM Response (Safe Inference)
+                  </h3>
+                </div>
+
+                {result && (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => copyText(result.llm_response, 'response')}
+                    className="px-2.5 py-1 rounded-md bg-zinc-800/80 hover:bg-zinc-700 border border-white/[0.08] text-zinc-300 text-[11px] font-mono flex items-center gap-1 transition-colors"
                   >
-                    <div className="inner-core px-4 py-3 text-red-400 text-sm font-mono">
-                      ⚠ {error}
-                    </div>
-                  </motion.div>
+                    {copiedResponse ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    {copiedResponse ? "Copied" : "Copy"}
+                  </motion.button>
                 )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
-          {/* Right: Output */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.7, ease: [0.32, 0.72, 0, 1] }}
-            className="outer-shell"
-          >
-            <div className="inner-core p-6 flex flex-col gap-5 h-full">
-
-              {/* Sanitized Vector */}
-              <div className="flex-1 flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="eyebrow">Sanitized Vector</span>
-                  <AnimatePresence>
-                    {result && (
-                      <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => copy(result.sanitized_prompt, 'p')}
-                        className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                      >
-                        {copiedPrompt ? '✓ Copied' : 'Copy'}
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <div className="flex-1 min-h-[100px] bg-black/40 rounded-xl border border-white/8 p-4 font-mono text-sm leading-relaxed">
-                  <AnimatePresence mode="wait">
-                    {loading ? (
-                      <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
-                        {[80, 55, 65].map((w, i) => (
-                          <motion.div key={i} className="h-3 bg-white/8 rounded-full" style={{ width: `${w}%` }}
-                            animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.15 }} />
-                        ))}
-                      </motion.div>
-                    ) : result ? (
-                      <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-0.5 items-center">
-                        {renderHighlightedText(result.sanitized_prompt)}
-                      </motion.div>
-                    ) : (
-                      <motion.span key="empty" className="text-white/20 italic">Awaiting secure payload…</motion.span>
-                    )}
-                  </AnimatePresence>
-                </div>
               </div>
 
-              {/* LLM Response */}
-              <div className="flex-1 flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="eyebrow">Groq LLM Response</span>
-                  <AnimatePresence>
-                    {result && (
-                      <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => copy(result.llm_response, 'r')}
-                        className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
-                      >
-                        {copiedResponse ? '✓ Copied' : 'Copy'}
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <div className="flex-1 min-h-[100px] max-h-48 overflow-y-auto bg-black/40 rounded-xl border border-white/8 p-4 font-mono text-sm text-white/60 leading-relaxed">
-                  <AnimatePresence mode="wait">
-                    {loading ? (
-                      <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
-                        {[95, 70].map((w, i) => (
-                          <motion.div key={i} className="h-3 bg-white/8 rounded-full" style={{ width: `${w}%` }}
-                            animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2 }} />
-                        ))}
-                      </motion.div>
-                    ) : displayedLlm ? (
-                      <motion.span key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                        {displayedLlm}
-                        {displayedLlm.length < (result?.llm_response?.length || 0) && (
-                          <motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="ml-0.5 inline-block w-0.5 h-3.5 bg-indigo-400 align-middle" />
-                        )}
-                      </motion.span>
-                    ) : (
-                      <motion.span key="empty" className="text-white/20 italic">Awaiting inference…</motion.span>
-                    )}
-                  </AnimatePresence>
-                </div>
+              <div className="bg-zinc-950/70 border border-white/[0.06] rounded-xl p-4 font-mono text-xs sm:text-sm text-zinc-200 min-h-[120px] max-h-[220px] overflow-y-auto leading-relaxed">
+                {loading ? (
+                  <div className="w-full space-y-2 animate-pulse">
+                    <div className="h-3.5 bg-zinc-800 rounded w-full"></div>
+                    <div className="h-3.5 bg-zinc-800 rounded w-4/5"></div>
+                    <div className="h-3.5 bg-zinc-800 rounded w-2/3"></div>
+                  </div>
+                ) : displayedLlmResponse ? (
+                  <div className="whitespace-pre-wrap">{displayedLlmResponse}</div>
+                ) : (
+                  <span className="text-zinc-400 italic text-xs">
+                    LLM response from Groq LLaMA 3.1 will stream here...
+                  </span>
+                )}
               </div>
-
             </div>
-          </motion.div>
-        </div>
 
-        {/* ── Footer ── */}
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.8 }}
-          className="mt-10 flex justify-between items-center text-[11px] font-mono text-white/15"
-        >
-          <span>PryvWire v1.0 · Zero-Retention Architecture</span>
-          <span>Presidio NER · LLaMA 3.1 · Render + Vercel</span>
-        </motion.footer>
+          </section>
 
-      </div>
+        </main>
 
-      {/* sr-only live region */}
-      <div className="sr-only" aria-live="polite">
-        {loading ? 'Processing…' : result ? `${result.metrics.threats_intercepted} threats intercepted.` : error || 'Ready'}
+        {/* --- Bottom Footer Info --- */}
+        <footer className="pt-4 border-t border-white/[0.05] flex flex-col sm:flex-row items-center justify-between text-zinc-400 text-xs gap-2">
+          <div className="flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Zero-Retention Architecture • No raw PII persisted in database</span>
+          </div>
+          <div className="font-mono text-[11px] text-zinc-400">
+            Render (FastAPI) + Vercel (React)
+          </div>
+        </footer>
+
       </div>
     </div>
-  );
+  )
 }
 
 export default function App() {
-  return <ErrorBoundary><MainApp /></ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      <MainApp />
+    </ErrorBoundary>
+  );
 }
