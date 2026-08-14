@@ -1,110 +1,302 @@
 import os
 import time
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import logging
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Header, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from presidio_analyzer import AnalyzerEngine
 from presidio_anonymizer import AnonymizerEngine
+from presidio_anonymizer.entities import OperatorConfig
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+from sqlalchemy import func
 
-from database import SessionLocal
+from config import settings
+from database import SessionLocal, engine
 from models import SanitizationAuditLog
+from middleware import RequestSizeLimitMiddleware, SecurityHeadersMiddleware
+from circuit_breaker import circuit_breaker
 
-load_dotenv()
+# Configure Structured Logger (Zero raw PII logged)
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
+    format="%(asctime)s [%(levelname)s] [req_id=%(request_id)s] %(message)s"
+)
 
-app = FastAPI(title="Enterprise PII Security Middleware", version="1.0.0")
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        if not hasattr(record, "request_id"):
+            record.request_id = "system"
+        return True
 
-# Enable CORS for the future React Frontend
+logger = logging.getLogger("pii_security_middleware")
+logger.addFilter(RequestIdFilter())
+
+# Initialize Rate Limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT])
+
+app = FastAPI(
+    title="CipherGate | Enterprise PII Security Middleware",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Register Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware, max_bytes=settings.MAX_REQUEST_SIZE_BYTES)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Initialize NLP Engines
-print("Initializing Presidio NLP Engines...")
+# Custom Structured Validation Error Handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    error_msg = errors[0].get("msg", "Invalid payload") if errors else "Validation failed"
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "error": "Bad Request",
+            "detail": f"Validation Error: {error_msg}"
+        }
+    )
+
+# Custom Structured HTTP Exception Handler
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        headers=exc.headers,
+        content={
+            "error": "Security Middleware Notice" if exc.status_code < 500 else "Internal Server Error",
+            "detail": exc.detail
+        }
+    )
+
+# Initialize Microsoft Presidio Engines
+logger.info("Initializing Presidio NLP Engines...")
 analyzer = AnalyzerEngine()
 anonymizer = AnonymizerEngine()
-print("NLP Engines Ready.")
+logger.info("Presidio NLP Engines initialized successfully.")
 
+# Redaction Operators Setup
+operators = {
+    "DEFAULT": OperatorConfig("replace", {"new_value": "<REDACTED>"})
+}
+for entity in ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"]:
+    operators[entity] = OperatorConfig("replace", {"new_value": f"[REDACTED: {entity}]"})
+
+
+# --- Pydantic Schemas ---
 class SecurityRequest(BaseModel):
-    user_prompt: str
-    client_id: str | None = None
+    user_prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=settings.MAX_REQUEST_SIZE_BYTES,
+        description="Input text string to intercept and sanitize"
+    )
+    client_id: Optional[str] = Field(None, max_length=100, description="Optional client caller identifier")
 
-def log_audit_metrics(threats: int, entities: list, process_time: int, client: str = None):
-    db = SessionLocal()
-    try:
-        log_entry = SanitizationAuditLog(
-            threats_intercepted=threats,
-            entities_blocked=",".join(entities),
-            processing_time_ms=process_time,
-            client_id=client
+
+# --- API Key Authentication Dependency ---
+def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """
+    Validates X-API-Key header against env configuration.
+    Enforced if REQUIRE_API_KEY is True or if header is explicitly provided.
+    """
+    if settings.REQUIRE_API_KEY:
+        if not x_api_key or x_api_key != settings.API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unauthorized: Invalid or missing X-API-Key header."
+            )
+    elif x_api_key and x_api_key != settings.API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Invalid X-API-Key header provided."
         )
-        db.add(log_entry)
-        db.commit()
-    finally:
-        db.close()
+    return x_api_key
+
+
+# --- Isolation-Wrapped Audit Logging ---
+def log_audit_metrics(threats: int, entities: list, process_time: int, client: str = None):
+    """
+    Asynchronous audit logger.
+    Wrapped in try/except so DB failures NEVER surface to the client or block responses.
+    """
+    try:
+        db = SessionLocal()
+        try:
+            log_entry = SanitizationAuditLog(
+                threats_intercepted=threats,
+                entities_blocked=",".join(entities),
+                processing_time_ms=process_time,
+                client_id=client or "anonymous"
+            )
+            db.add(log_entry)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as db_err:
+        logger.error(f"Audit log write failed safely (non-blocking): {db_err}")
+
+
+# --- API Routes ---
 
 @app.get("/health")
 def health_check():
-    return {"status": "Secure and Operational"}
+    """
+    Full readiness health check verifying DB connectivity and Groq configuration.
+    """
+    db_reachable = False
+    try:
+        db = SessionLocal()
+        db.execute(func.now())
+        db.close()
+        db_reachable = True
+    except Exception as err:
+        logger.error(f"Database health check failed: {err}")
+
+    groq_configured = bool(settings.GROQ_API_KEY and settings.GROQ_API_KEY != "your_actual_api_key_here")
+
+    return {
+        "status": "Secure and Operational" if db_reachable else "Degraded",
+        "database_connected": db_reachable,
+        "groq_configured": groq_configured,
+        "presidio_nlp_ready": True,
+        "circuit_breaker": circuit_breaker.get_status()
+    }
+
+@app.get("/metrics")
+def get_metrics():
+    """
+    Exposes real-time aggregated metrics backing the frontend metrics dashboard cards.
+    """
+    try:
+        db = SessionLocal()
+        try:
+            total_requests = db.query(SanitizationAuditLog).count()
+            total_threats = db.query(func.sum(SanitizationAuditLog.threats_intercepted)).scalar() or 0
+            avg_latency = db.query(func.avg(SanitizationAuditLog.processing_time_ms)).scalar() or 0
+
+            # Entities breakdown
+            logs = db.query(SanitizationAuditLog.entities_blocked).filter(SanitizationAuditLog.entities_blocked != "").all()
+            breakdown = {}
+            for (eblocks,) in logs:
+                if eblocks:
+                    for entity in eblocks.split(","):
+                        entity = entity.strip()
+                        if entity:
+                            breakdown[entity] = breakdown.get(entity, 0) + 1
+
+            return {
+                "total_requests": total_requests,
+                "total_threats_blocked": int(total_threats),
+                "avg_processing_time_ms": round(float(avg_latency), 2),
+                "entities_breakdown": breakdown,
+                "circuit_breaker": circuit_breaker.get_status(),
+                "active_model": settings.GROQ_MODEL
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Metrics query failed: {e}")
+        return {
+            "total_requests": 0,
+            "total_threats_blocked": 0,
+            "avg_processing_time_ms": 0,
+            "entities_breakdown": {},
+            "circuit_breaker": circuit_breaker.get_status(),
+            "active_model": settings.GROQ_MODEL
+        }
 
 @app.post("/api/v1/sanitize")
-async def process_secure_prompt(request: SecurityRequest, background_tasks: BackgroundTasks):
+@limiter.limit(settings.RATE_LIMIT)
+async def process_secure_prompt(
+    request: Request,
+    body: SecurityRequest,
+    background_tasks: BackgroundTasks,
+    api_key: Optional[str] = Depends(verify_api_key)
+):
     start_time = time.time()
-    raw_text = request.user_prompt
-    
-    if not raw_text or len(raw_text) > 2000:
-        raise HTTPException(status_code=400, detail="Prompt must be between 1 and 2000 characters.")
+    raw_text = body.user_prompt
+    req_id = getattr(request.state, "request_id", "unknown")
 
     try:
-        # 1. Intercept & Analyze
-        results = analyzer.analyze(text=raw_text, entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"], language='en')
-        
-        # 2. Redact with clear UI tags
-        from presidio_anonymizer.entities import OperatorConfig
-        operators = {
-            "DEFAULT": OperatorConfig("replace", {"new_value": "<REDACTED>"})
-        }
-        for entity in ["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"]:
-            operators[entity] = OperatorConfig("replace", {"new_value": f"[REDACTED: {entity}]"})
-            
-        anonymized = anonymizer.anonymize(text=raw_text, analyzer_results=results, operators=operators)
+        # Step 1: Intercept & Analyze PII via Presidio
+        results = analyzer.analyze(
+            text=raw_text,
+            entities=["EMAIL_ADDRESS", "PHONE_NUMBER", "PERSON", "US_SSN", "CREDIT_CARD"],
+            language='en'
+        )
+
+        # Step 2: Redact PII into clear UI tags
+        anonymized = anonymizer.anonymize(
+            text=raw_text,
+            analyzer_results=results,
+            operators=operators
+        )
         safe_prompt = anonymized.text
-        
-        # Extract metadata for logging
+
         threats_blocked = len(results)
         entities_found = list(set([res.entity_type for res in results]))
 
-        # 3. Secure LLM Routing
-        load_dotenv(override=True)
-        groq_key = os.environ.get("GROQ_API_KEY")
-        model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+        # Step 3: Groq Call with Timeout, Retries & Circuit Breaker
+        groq_key = settings.GROQ_API_KEY
         if not groq_key or groq_key == "your_actual_api_key_here":
-             llm_response_text = "SYSTEM MESSAGE: GROQ_API_KEY not found in .env. LLM bypassed."
+            llm_response_text = "SYSTEM MESSAGE: GROQ_API_KEY not configured in .env. LLM bypassed."
+        elif not circuit_breaker.allow_request():
+            llm_response_text = "LLM Gateway Notification: Circuit Breaker OPEN due to sustained upstream outage. Sanitized payload preserved."
         else:
-             try:
-                 llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name=model_name)
-                 llm_response = llm.invoke(safe_prompt)
-                 llm_response_text = llm_response.content
-             except Exception as llm_err:
-                 # Fallback to llama-3.3-70b-versatile or llama3-8b-8192 if requested model is unavailable
-                 try:
-                     llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name="llama-3.1-8b-instant")
-                     llm_response = llm.invoke(safe_prompt)
-                     llm_response_text = llm_response.content
-                 except Exception as fallback_err:
-                     llm_response_text = f"LLM Gateway Notification: {str(fallback_err)}"
-        
+            try:
+                llm = ChatGroq(
+                    temperature=0,
+                    groq_api_key=groq_key,
+                    model_name=settings.GROQ_MODEL,
+                    timeout=settings.GROQ_TIMEOUT_SECONDS,
+                    max_retries=settings.GROQ_MAX_RETRIES
+                )
+                llm_response = llm.invoke(safe_prompt)
+                llm_response_text = llm_response.content
+                circuit_breaker.record_success()
+            except Exception as groq_err:
+                circuit_breaker.record_failure()
+                logger.error(f"Groq API call failed after retries: {groq_err}", extra={"request_id": req_id})
+                llm_response_text = f"LLM Gateway Notification: Upstream provider temporary issue ({type(groq_err).__name__}). Sanitized payload preserved."
+
         processing_time_ms = int((time.time() - start_time) * 1000)
 
-        # Asynchronously dispatch zero-PII audit logging
-        background_tasks.add_task(log_audit_metrics, threats_blocked, entities_found, processing_time_ms, request.client_id)
+        # Step 4: Dispatch Non-Blocking Audit Logging (Zero-PII)
+        background_tasks.add_task(
+            log_audit_metrics,
+            threats_blocked,
+            entities_found,
+            processing_time_ms,
+            body.client_id
+        )
 
-        # 4. Return Safe Payload
+        # Log Request (Zero PII!)
+        logger.info(
+            f"Sanitized request completed - threats_blocked={threats_blocked}, latency_ms={processing_time_ms}",
+            extra={"request_id": req_id}
+        )
+
         return {
             "status": "success",
             "data": {
@@ -121,5 +313,12 @@ async def process_secure_prompt(request: SecurityRequest, background_tasks: Back
     except HTTPException:
         raise
     except Exception as e:
-        # Fail-closed mechanism
-        raise HTTPException(status_code=500, detail="Security Middleware Error: Request blocked to prevent data leakage.")
+        logger.error(f"Fail-closed interceptor triggered: {e}", extra={"request_id": req_id})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Security Middleware Error: Request blocked to prevent data leakage."
+        )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
