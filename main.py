@@ -82,9 +82,22 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         }
     )
 
-# Initialize Microsoft Presidio Engines
+# Initialize Microsoft Presidio Engines with lightweight spaCy model (fits within Render 512MB RAM limit)
 logger.info("Initializing Presidio NLP Engines...")
-analyzer = AnalyzerEngine()
+try:
+    from presidio_analyzer.nlp_engine import NlpEngineProvider
+    configuration = {
+        "nlp_engine_name": "spacy",
+        "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+    }
+    provider = NlpEngineProvider(nlp_configuration=configuration)
+    nlp_engine = provider.create_engine()
+    analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
+    logger.info("Presidio AnalyzerEngine initialized with lightweight 'en_core_web_sm' model.")
+except Exception as nlp_err:
+    logger.warning(f"Failed to load lightweight spaCy engine ({nlp_err}), falling back to default AnalyzerEngine.")
+    analyzer = AnalyzerEngine()
+
 anonymizer = AnonymizerEngine()
 logger.info("Presidio NLP Engines initialized successfully.")
 
