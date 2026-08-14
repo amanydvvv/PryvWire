@@ -8,6 +8,9 @@ from presidio_anonymizer import AnonymizerEngine
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 
+from database import SessionLocal
+from models import SanitizationAuditLog
+
 load_dotenv()
 
 app = FastAPI(title="Enterprise PII Security Middleware", version="1.0.0")
@@ -31,12 +34,26 @@ class SecurityRequest(BaseModel):
     user_prompt: str
     client_id: str | None = None
 
+def log_audit_metrics(threats: int, entities: list, process_time: int, client: str = None):
+    db = SessionLocal()
+    try:
+        log_entry = SanitizationAuditLog(
+            threats_intercepted=threats,
+            entities_blocked=",".join(entities),
+            processing_time_ms=process_time,
+            client_id=client
+        )
+        db.add(log_entry)
+        db.commit()
+    finally:
+        db.close()
+
 @app.get("/health")
 def health_check():
     return {"status": "Secure and Operational"}
 
 @app.post("/api/v1/sanitize")
-async def process_secure_prompt(request: SecurityRequest):
+async def process_secure_prompt(request: SecurityRequest, background_tasks: BackgroundTasks):
     start_time = time.time()
     raw_text = request.user_prompt
     
@@ -58,16 +75,19 @@ async def process_secure_prompt(request: SecurityRequest):
         # 3. Secure LLM Routing
         groq_key = os.environ.get("GROQ_API_KEY")
         if not groq_key or groq_key == "your_actual_api_key_here":
-             llm_response_text = "SYSTEM MESSAGE: GROQ_API_KEY not configured in .env. LLM bypassed."
+             llm_response_text = "SYSTEM MESSAGE: GROQ_API_KEY not found in .env. LLM bypassed."
         else:
              try:
-                 llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name="llama-3.1-8b-instant")
+                 llm = ChatGroq(temperature=0, groq_api_key=groq_key, model_name="llama3-8b-8192")
                  llm_response = llm.invoke(safe_prompt)
                  llm_response_text = llm_response.content
              except Exception as llm_err:
                  llm_response_text = f"LLM Gateway Notification: {str(llm_err)}"
         
         processing_time_ms = int((time.time() - start_time) * 1000)
+
+        # Asynchronously dispatch zero-PII audit logging
+        background_tasks.add_task(log_audit_metrics, threats_blocked, entities_found, processing_time_ms, request.client_id)
 
         # 4. Return Safe Payload
         return {
@@ -87,4 +107,4 @@ async def process_secure_prompt(request: SecurityRequest):
         raise
     except Exception as e:
         # Fail-closed mechanism
-        raise HTTPException(status_code=500, detail=f"Security Middleware Error: Request blocked to prevent data leakage. ({str(e)})")
+        raise HTTPException(status_code=500, detail="Security Middleware Error: Request blocked to prevent data leakage.")
