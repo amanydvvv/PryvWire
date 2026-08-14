@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Component } from 'react'
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://pryvwire.onrender.com';
 
 // React Error Boundary Component
 class ErrorBoundary extends Component {
