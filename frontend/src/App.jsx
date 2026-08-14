@@ -1,76 +1,57 @@
 import React, { useState, useEffect, Component } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  Search,
-  Home,
-  Radio,
-  Compass,
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
-  Volume2,
-  ListMusic,
-  ExternalLink,
-  ShieldCheck,
-  ShieldAlert,
-  Zap,
-  Lock,
-  Copy,
-  Check,
-  Terminal,
-  Sparkles,
-  RefreshCw,
+  ShieldCheck, 
+  ShieldAlert, 
+  Zap, 
+  Copy, 
+  Check, 
+  Terminal, 
+  Sparkles, 
+  ArrowRight, 
+  RefreshCw, 
+  Lock, 
+  Activity,
+  Code2,
   Sliders,
   AlertCircle,
-  MoreHorizontal,
-  Code2,
-  Activity,
+  Cpu,
   Layers,
-  FileCode
+  Split,
+  Eye,
+  GitCompare,
+  CheckCircle2,
+  ExternalLink,
+  Radio,
+  FileCode,
+  Fingerprint
 } from 'lucide-react'
 
 const API_BASE_URL = 'https://pryvwire.onrender.com';
 
-// Featured Apple-Music style hero vectors
-const FEATURED_HEROES = [
+// Sample enterprise prompt presets
+const PRESETS = [
   {
     id: "healthcare",
-    category: "FEATURED EHR RECORD",
-    title: "Patient Medical & SSN Authorization",
-    subtitle: "Healthcare data filtering with HIPAA Title II & GDPR PII compliance.",
-    gradient: "from-purple-900/60 via-indigo-950/80 to-zinc-950",
-    accent: "#a855f7",
+    label: "Healthcare Patient EHR",
+    badge: "HIPAA Protected",
+    icon: "🏥",
     text: "Patient Sarah Jenkins (DOB 1984-05-12, SSN 042-99-1823) contacted us via sarah.jenkins@healthfirst.org or phone (415) 555-0199 regarding prescription refill authorization."
   },
   {
     id: "finance",
-    category: "HIGH-VALUE TRANSACTION",
-    title: "Executive Wire & PAN Tokenizer",
-    subtitle: "Real-time bank wire scrub with PCI-DSS 3.4 primary account protection.",
-    gradient: "from-blue-900/60 via-slate-950/80 to-zinc-950",
-    accent: "#38bdf8",
+    label: "Executive Wire & PAN",
+    badge: "PCI-DSS / GLBA",
+    icon: "💳",
     text: "Authorize wire transfer of $45,000 for executive Michael Vance (SSN 987-65-4321). Confirmation email michael.vance@vancecapital.com or cell +1-202-555-0143. Card on file: 4532-8921-0034-8812."
   },
   {
     id: "hr",
-    category: "ENTERPRISE DIRECTORY",
-    title: "Confidential HR Payroll Stream",
-    subtitle: "Automated direct deposit routing with zero persistent storage.",
-    gradient: "from-rose-900/60 via-zinc-950/80 to-zinc-950",
-    accent: "#fb7185",
+    label: "Confidential Payroll Direct Deposit",
+    badge: "GDPR / PII",
+    icon: "💼",
     text: "Update direct deposit for employee David Chen (dchen@acmecorp.com, 555-839-2011). Route monthly compensation to account ending in 8831."
   }
-];
-
-// Track-style quick test vectors
-const TRACK_PRESETS = [
-  { id: 1, title: "Executive Wire Approval", artist: "PCI-DSS • SSN & Card", duration: "12 ms", icon: "💳", text: "Authorize wire for CEO Michael (SSN 987-65-4321, card 4532-8921-0034-8812)." },
-  { id: 2, title: "Patient Clinic Intake", artist: "HIPAA • Phone & Email", duration: "18 ms", icon: "🏥", text: "Patient Sarah Jenkins (sarah.j@health.org, phone 415-555-0199) requested checkup." },
-  { id: 3, title: "Employee Payroll Route", artist: "GDPR • Banking Vector", duration: "14 ms", icon: "💼", text: "Direct deposit for David Chen (dchen@corp.com, phone 555-839-2011) account 8831." },
-  { id: 4, title: "Support Ticket Escalation", artist: "PII • Identity Token", duration: "21 ms", icon: "🎟️", text: "Customer Emily Watson (emily@gmail.com, cell 202-555-0177) reset password." },
-  { id: 5, title: "Loan Application Lead", artist: "GLBA • Credit Record", duration: "16 ms", icon: "📊", text: "Applicant Robert Miller (SSN 112-99-4455, robert@miller.com) loan status." },
-  { id: 6, title: "Billing Subscription Update", artist: "PCI-DSS • Account ID", duration: "19 ms", icon: "🧾", text: "Update subscription for Lisa (lisa@apex.io, card 4111-2222-3333-4444)." }
 ];
 
 // Error Boundary Component
@@ -91,9 +72,9 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0d0d0f] text-zinc-100 flex items-center justify-center p-6">
-          <div className="bg-[#1c1c1e] border border-white/[0.1] rounded-2xl p-6 text-center max-w-md w-full shadow-2xl">
-            <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
+        <div className="min-h-screen bg-[#0e0e11] text-zinc-100 flex items-center justify-center p-6">
+          <div className="bg-[#1c1c1f] border border-white/[0.1] rounded-2xl p-6 text-center max-w-md w-full shadow-2xl">
+            <AlertCircle className="w-8 h-8 text-[#fa2d48] mx-auto mb-3" />
             <h2 className="text-sm font-semibold text-zinc-100 mb-1">Application Exception</h2>
             <p className="text-zinc-400 text-xs font-mono mb-4">{this.state.error?.toString()}</p>
             <button
@@ -139,17 +120,18 @@ function AnimatedCounter({ value, suffix = "" }) {
 }
 
 function MainApp() {
-  const [prompt, setPrompt] = useState(FEATURED_HEROES[0].text)
+  const [prompt, setPrompt] = useState(PRESETS[0].text)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
   const [copiedResponse, setCopiedResponse] = useState(false)
+  const [copiedSdk, setCopiedSdk] = useState(false)
   
   // Navigation & Views
-  const [activeNav, setActiveNav] = useState('gateway') // 'gateway' | 'diff' | 'telemetry' | 'sdk'
+  const [activeTab, setActiveTab] = useState('gateway') // 'gateway' | 'diff' | 'sdk'
   const [inspectionView, setInspectionView] = useState('stream') // 'stream' | 'diff' | 'json'
-  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSdkLang, setSelectedSdkLang] = useState('python')
 
   // Telemetry & Health State
   const [metrics, setMetrics] = useState({
@@ -225,7 +207,7 @@ function MainApp() {
 
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error('Rate limit reached (30 req/min). System protected.');
+          throw new Error('Rate limit reached (30 req/min). Gateway protected.');
         } else if (response.status === 413) {
           throw new Error('Payload too large. Exceeds 50KB security threshold.');
         } else if (response.status === 401) {
@@ -250,20 +232,23 @@ function MainApp() {
     if (type === 'prompt') {
       setCopiedPrompt(true);
       setTimeout(() => setCopiedPrompt(false), 2000);
-    } else {
+    } else if (type === 'response') {
       setCopiedResponse(true);
       setTimeout(() => setCopiedResponse(false), 2000);
+    } else if (type === 'sdk') {
+      setCopiedSdk(true);
+      setTimeout(() => setCopiedSdk(false), 2000);
     }
   };
 
-  // Apple-style Redacted Entity Pill Chips
+  // Apple Dark Coral-Red Redacted Entity Badges
   const renderHighlightedText = (text, isDiff = false) => {
     const parts = text.split(/(\[REDACTED: [A-Z_]+\])/g);
     return parts.map((part, index) => {
       if (part.startsWith('[REDACTED:')) {
         const entity = part.replace('[REDACTED: ', '').replace(']', '');
         
-        let colorClass = "bg-[#fa2d48]/15 text-[#fa2d48] border-[#fa2d48]/30";
+        let colorClass = "bg-[#fa2d48]/15 text-[#ff4b60] border-[#fa2d48]/30";
         let glyph = "◈";
         if (entity === "PERSON") {
           colorClass = "bg-amber-500/15 text-amber-300 border-amber-500/30";
@@ -307,325 +292,268 @@ function MainApp() {
   const anonPct = Math.max(4, Math.round((breakdown.anonymizer_ms / totalTime) * 100));
   const llmPct = 100 - nerPct - anonPct;
 
+  // SDK Drop-in Snippet Generator
+  const getSdkSnippet = (lang) => {
+    if (lang === 'python') {
+      return `import requests
+
+# PryvWire Zero-Retention Security Gateway Client
+url = "${API_BASE_URL}/api/v1/sanitize"
+headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": "your-pryvwire-api-key"
+}
+payload = {
+    "user_prompt": "${prompt.trim() ? prompt.replace(/"/g, '\\"') : 'Authorize wire for John Doe (SSN: 000-11-2222)'}",
+    "client_id": "production-backend"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+data = response.json()
+
+# Zero raw PII reaches your downstream LLM:
+print("Sanitized Vector:", data["data"]["sanitized_prompt"])
+print("LLM Synthesis:", data["data"]["llm_response"])`;
+    } else if (lang === 'curl') {
+      return `curl -X POST "${API_BASE_URL}/api/v1/sanitize" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: your-pryvwire-api-key" \\
+  -d '{
+    "user_prompt": "${prompt.trim() ? prompt.replace(/"/g, '\\"') : 'Patient Sarah (SSN 042-99-1823, email sarah@clinic.org)'}",
+    "client_id": "curl-client"
+  }'`;
+    } else {
+      return `import { fetch } from 'undici';
+
+const response = await fetch('${API_BASE_URL}/api/v1/sanitize', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-pryvwire-api-key'
+  },
+  body: JSON.stringify({
+    user_prompt: ${JSON.stringify(prompt.trim() || 'Contact david@acme.corp or call 555-839-2011')},
+    client_id: 'node-backend'
+  })
+});
+
+const result = await response.json();
+console.log('Sanitized Payload:', result.data.sanitized_prompt);
+console.log('LLM Output:', result.data.llm_response);`;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0d0d0f] text-[#f5f5f7] flex flex-col antialiased selection:bg-[#fa2d48]/30 selection:text-white">
+    <div className="min-h-screen bg-[#0e0e11] text-[#f5f5f7] flex flex-col antialiased selection:bg-[#fa2d48]/30 selection:text-white relative justify-between">
       
-      {/* Top Main Container (Sidebar + Content) */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* --- LEFT SIDEBAR (Apple Music macOS Acrylic Style) --- */}
-        <aside className="w-64 bg-[#141416]/90 border-r border-white/[0.08] backdrop-blur-2xl flex flex-col justify-between p-4 hidden md:flex shrink-0">
+      {/* Ambient Crimson/Coral Top Lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] bg-gradient-to-b from-[#fa2d48]/12 via-[#fa2d48]/3 to-transparent blur-[140px] pointer-events-none -z-10" />
+
+      {/* Screen Reader Live Region */}
+      <div className="sr-only" aria-live="polite">
+        {loading ? "Sanitizing payload..." : result ? `Sanitization complete. ${result.metrics.threats_intercepted} threats intercepted.` : error ? `Error: ${error}` : "Ready"}
+      </div>
+
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 sm:gap-8">
+
+        {/* --- Apple Dark Navigation Header --- */}
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
           
-          <div className="flex flex-col gap-6">
-            
-            {/* Apple / Brand Lockup */}
-            <div className="flex items-center gap-2.5 px-2 pt-2">
-              <div className="text-xl"></div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-base font-bold tracking-tight text-white">PryvWire</span>
-                <span className="text-[10px] text-zinc-500 font-mono">v1.0</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#1c1c1f] border border-white/[0.1] flex items-center justify-center text-[#fa2d48] font-bold shadow-md">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold tracking-tight text-white">
+                  PryvWire
+                </h1>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.08]">
+                  v1.0-prod
+                </span>
               </div>
+              <p className="text-xs text-zinc-400 font-medium">Zero-Retention Security Gateway</p>
             </div>
-
-            {/* Apple Music Style Search Bar */}
-            <div className="relative px-1">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search vectors &amp; tokens..."
-                className="w-full bg-[#1c1c1e] text-xs text-white placeholder-zinc-500 rounded-lg pl-8 pr-3 py-1.5 border border-white/[0.06] focus:border-[#fa2d48]/60 focus:outline-none transition-all"
-              />
-            </div>
-
-            {/* Navigation Menu */}
-            <nav className="flex flex-col gap-1 text-xs font-medium">
-              
-              <button
-                onClick={() => setActiveNav('gateway')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  activeNav === 'gateway' 
-                    ? 'bg-[#fa2d48] text-white font-semibold shadow-sm' 
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
-                }`}
-              >
-                <Home className="w-4 h-4" />
-                <span>Security Gateway</span>
-              </button>
-
-              <button
-                onClick={() => setActiveNav('diff')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  activeNav === 'diff' 
-                    ? 'bg-[#fa2d48] text-white font-semibold shadow-sm' 
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
-                }`}
-              >
-                <Compass className="w-4 h-4" />
-                <span>Token Diff Inspector</span>
-              </button>
-
-              <button
-                onClick={() => setActiveNav('telemetry')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  activeNav === 'telemetry' 
-                    ? 'bg-[#fa2d48] text-white font-semibold shadow-sm' 
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
-                }`}
-              >
-                <Radio className="w-4 h-4" />
-                <span>Radio &amp; Telemetry</span>
-              </button>
-
-              <button
-                onClick={() => setActiveNav('sdk')}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  activeNav === 'sdk' 
-                    ? 'bg-[#fa2d48] text-white font-semibold shadow-sm' 
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
-                }`}
-              >
-                <FileCode className="w-4 h-4" />
-                <span>Developer SDK</span>
-              </button>
-
-            </nav>
-
-            {/* Quick Presets Section */}
-            <div className="flex flex-col gap-2 pt-2 border-t border-white/[0.06] px-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 px-2">
-                Curated Channels
-              </span>
-              <div className="flex flex-col gap-1 text-[11px] text-zinc-400">
-                {TRACK_PRESETS.slice(0, 3).map((track) => (
-                  <button
-                    key={track.id}
-                    onClick={() => {
-                      setPrompt(track.text);
-                      handleSanitize(track.text);
-                    }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.05] hover:text-white transition-all text-left truncate"
-                  >
-                    <span>{track.icon}</span>
-                    <span className="truncate">{track.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
           </div>
 
-          {/* Sidebar Bottom Footer Info */}
-          <div className="flex flex-col gap-2 pt-4 border-t border-white/[0.06] text-[11px]">
+          <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+            
+            {/* View Tabs */}
+            <div className="flex items-center bg-[#1c1c1f] p-1 rounded-xl border border-white/[0.08]">
+              <button
+                onClick={() => setActiveTab('gateway')}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'gateway' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                ◈ Gateway Studio
+              </button>
+              <button
+                onClick={() => setActiveTab('sdk')}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'sdk' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                ⚙️ Developer SDK
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1c1c1f] border border-white/[0.08]">
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isHealthy ? 'bg-[#14D086]' : 'bg-amber-400'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${isHealthy ? 'bg-[#14D086]' : 'bg-amber-500'}`}></span>
+              </span>
+              <span className="text-xs font-medium text-zinc-300">
+                {isHealthy ? 'Gateway Operational' : healthStatus ? 'Degraded' : 'Connecting...'}
+              </span>
+            </div>
+
             <a 
               href={`${API_BASE_URL}/docs`}
               target="_blank" 
               rel="noreferrer"
-              className="flex items-center justify-between text-zinc-400 hover:text-white px-2 py-1 transition-colors"
+              className="text-xs font-mono text-zinc-400 hover:text-white px-3 py-1.5 rounded-full bg-[#1c1c1f] hover:bg-zinc-800 border border-white/[0.08] hover:border-white/[0.2] transition-all flex items-center gap-1 shadow-sm"
             >
-              <span>Swagger REST API</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+              <span>Swagger</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
             </a>
 
-            <div className="flex items-center gap-2 px-2 py-1 text-zinc-500 font-mono text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#14D086]" />
-              <span>{isHealthy ? 'Render LPU Connected' : 'Connecting...'}</span>
-            </div>
           </div>
 
-        </aside>
+        </header>
 
-        {/* --- MAIN CONTENT AREA (Apple Music Style Scroll View) --- */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 pb-32 flex flex-col gap-8">
+        {/* --- High-Contrast Telemetry Console (Apple Dark Palette) --- */}
+        <section className="bg-[#1c1c1f] border border-white/[0.08] rounded-2xl p-5 grid grid-cols-2 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-white/[0.08] shadow-lg">
           
-          {/* Top Mobile Bar (When sidebar hidden) */}
-          <div className="flex md:hidden items-center justify-between pb-4 border-b border-white/[0.08]">
-            <div className="flex items-center gap-2">
-              <span className="text-xl"></span>
-              <span className="font-bold text-white">PryvWire</span>
+          <div className="flex flex-col justify-between">
+            <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
+              <span className="font-medium">Threats Intercepted</span>
+              <ShieldAlert className="w-4 h-4 text-[#fa2d48]" />
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="w-2 h-2 rounded-full bg-[#14D086]" />
-              <span className="text-zinc-300">Gateway Active</span>
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter value={result ? result.metrics.threats_intercepted : metrics.total_threats_blocked} />
             </div>
+            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">◈ Zero PII Leaked</span>
           </div>
 
-          {/* --- HERO CAROUSEL ROW (Large Apple Music Featured Cards) --- */}
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
-                <span>Featured Ingestion Channels</span>
-                <span className="text-zinc-500 font-normal text-sm">›</span>
-              </h2>
-              <span className="text-xs text-zinc-400 font-mono">3 Active Presets</span>
+          <div className="flex flex-col justify-between md:pl-4">
+            <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
+              <span className="font-medium">Pipeline Latency</span>
+              <Zap className="w-4 h-4 text-amber-400" />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {FEATURED_HEROES.map((hero) => (
-                <div
-                  key={hero.id}
-                  className={`relative rounded-2xl overflow-hidden bg-gradient-to-br ${hero.gradient} border border-white/[0.08] p-5 flex flex-col justify-between min-h-[190px] shadow-lg group hover:border-white/[0.2] transition-all`}
-                >
-                  <div className="flex flex-col gap-1 z-10">
-                    <span className="text-[10px] font-semibold tracking-wider uppercase text-zinc-400 font-mono">
-                      {hero.category}
-                    </span>
-                    <h3 className="text-base font-bold text-white leading-snug">
-                      {hero.title}
-                    </h3>
-                    <p className="text-xs text-zinc-300/80 leading-relaxed mt-1">
-                      {hero.subtitle}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4 z-10">
-                    <span className="text-[11px] font-mono text-zinc-400">Zero Retention</span>
-                    <button
-                      onClick={() => {
-                        setPrompt(hero.text);
-                        handleSanitize(hero.text);
-                      }}
-                      className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all group-hover:bg-[#fa2d48] group-hover:text-white"
-                      title="Load and Sanitize"
-                    >
-                      <Play className="w-4 h-4 fill-current ml-0.5" />
-                    </button>
-                  </div>
-
-                  {/* Subtle decorative glow */}
-                  <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-                </div>
-              ))}
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter 
+                value={result ? result.metrics.processing_time_ms : Math.round(metrics.avg_processing_time_ms)} 
+                suffix=" ms" 
+              />
             </div>
-          </section>
+            <span className="text-[10px] text-[#14D086] font-mono mt-0.5">◬ Sub-50ms Target</span>
+          </div>
 
-          {/* --- TRACKS ROW (Apple Music Style Song Rows) --- */}
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold tracking-tight text-white flex items-center gap-1">
-                <span>Recent Threat Interceptions</span>
-                <span className="text-zinc-500 font-normal">›</span>
-              </h3>
-              <span className="text-xs text-zinc-400 font-mono">SLA &lt; 50ms</span>
+          <div className="flex flex-col justify-between md:pl-4 pt-3 md:pt-0">
+            <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
+              <span className="font-medium">Audit Telemetry</span>
+              <Activity className="w-4 h-4 text-sky-400" />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {TRACK_PRESETS.map((track) => (
-                <div
-                  key={track.id}
-                  onClick={() => {
-                    setPrompt(track.text);
-                    handleSanitize(track.text);
-                  }}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-[#141416]/60 hover:bg-[#1c1c1e] border border-white/[0.04] hover:border-white/[0.1] transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-[#242426] flex items-center justify-center text-base shrink-0 group-hover:bg-[#fa2d48]/20 transition-colors">
-                      {track.icon}
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-semibold text-white truncate group-hover:text-[#fa2d48] transition-colors">
-                        {track.title}
-                      </span>
-                      <span className="text-[10px] text-zinc-400 truncate">
-                        {track.artist}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 pl-2">
-                    <span className="text-[10px] font-mono text-zinc-500">{track.duration}</span>
-                    <button className="w-7 h-7 rounded-full bg-white/5 group-hover:bg-white text-zinc-300 group-hover:text-black flex items-center justify-center transition-all">
-                      <Play className="w-3 h-3 fill-current ml-0.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="text-2xl font-bold font-mono text-white tracking-tight">
+              <AnimatedCounter value={metrics.total_requests} />
             </div>
-          </section>
+            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">▣ Async Non-Blocking</span>
+          </div>
 
-          {/* --- MAIN INTERACTIVE SANITIZATION STUDIO --- */}
-          <section className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 flex flex-col gap-6 shadow-xl">
+          <div className="flex flex-col justify-between md:pl-4 pt-3 md:pt-0">
+            <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
+              <span className="font-medium">Inference Engine</span>
+              <Sparkles className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-sm font-semibold font-mono text-white truncate">
+              llama-3.1-8b-instant
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono mt-0.5">Groq LPU Isolated</span>
+          </div>
+
+        </section>
+
+        {/* --- MAIN VIEW 1: GATEWAY STUDIO --- */}
+        {activeTab === 'gateway' && (
+          <div className="flex flex-col gap-6">
             
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">
-                  Zero-Retention Gateway Studio
-                </h3>
-                <p className="text-xs text-zinc-400">
-                  Real-time PII interception chamber with isolated Groq LLaMA 3.1 synthesis.
-                </p>
-              </div>
-
-              {/* View Selector Tabs */}
-              <div className="flex items-center bg-[#1c1c1e] p-1 rounded-xl border border-white/[0.08]">
+            {/* Quick Test Vectors Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs scrollbar-none">
+              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+                <Sliders className="w-3.5 h-3.5" /> Test Vectors:
+              </span>
+              {PRESETS.map((preset) => (
                 <button
-                  onClick={() => setInspectionView('stream')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    inspectionView === 'stream' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
+                  key={preset.id}
+                  onClick={() => {
+                    setPrompt(preset.text);
+                    handleSanitize(preset.text);
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-[#1c1c1f] hover:bg-zinc-800 border border-white/[0.08] hover:border-[#fa2d48]/50 text-zinc-300 hover:text-white transition-all text-xs flex items-center gap-2 shrink-0 shadow-sm"
                 >
-                  ◈ Stream View
+                  <span>{preset.icon}</span>
+                  <span className="font-medium">{preset.label}</span>
+                  <span className="text-[9px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.04]">
+                    {preset.badge}
+                  </span>
                 </button>
-                <button
-                  onClick={() => setInspectionView('diff')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    inspectionView === 'diff' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  ◬ Token Diff
-                </button>
-                <button
-                  onClick={() => setInspectionView('json')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    inspectionView === 'json' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  ▣ Audit JSON
-                </button>
-              </div>
+              ))}
             </div>
 
-            {/* Input & Output Studio Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Main Interactive Studio Grid */}
+            <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
               {/* Left Column: Raw Payload Editor */}
-              <div className="lg:col-span-5 flex flex-col gap-3">
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span className="font-semibold text-white flex items-center gap-1.5">
-                    <Code2 className="w-3.5 h-3.5 text-[#fa2d48]" />
+              <section className="lg:col-span-5 bg-[#1c1c1f] border border-white/[0.08] rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-white tracking-tight flex items-center gap-1.5">
+                    <Code2 className="w-4 h-4 text-[#fa2d48]" />
                     Inbound Ingestion Payload
+                  </label>
+                  <span className="text-[11px] font-mono text-zinc-500">
+                    {prompt.length} / 50,000 bytes
                   </span>
-                  <span className="text-[10px] font-mono">{prompt.length} bytes</span>
                 </div>
 
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Enter or paste text containing PII (Names, SSNs, Credit Cards, Emails, Phone Numbers)..."
-                  rows={8}
-                  className="w-full bg-[#1c1c1e] text-white placeholder-zinc-500 text-xs font-mono rounded-xl p-4 border border-white/[0.08] focus:border-[#fa2d48]/60 focus:outline-none transition-all resize-none leading-relaxed"
-                />
+                <div className="relative">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Enter or paste text containing sensitive identifiers (Names, SSNs, Credit Cards, Emails, Phone Numbers)..."
+                    rows={9}
+                    className="w-full bg-[#141416] text-zinc-200 placeholder-zinc-500 text-xs font-mono rounded-xl p-4 border border-white/[0.06] focus:border-[#fa2d48]/60 focus:outline-none transition-all resize-none leading-relaxed"
+                  />
+                  {loading && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] rounded-xl flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-xs font-mono text-[#fa2d48]">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Presidio NLP Interception Active...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
+                {/* Primary Action Button (Apple Coral-Crimson) */}
                 <button
                   onClick={() => handleSanitize()}
                   disabled={loading || !prompt.trim()}
-                  className={`w-full py-3 px-5 rounded-xl font-semibold text-xs tracking-tight transition-all flex items-center justify-center gap-2 shadow-md ${
+                  className={`w-full py-3 px-5 rounded-xl font-semibold text-xs tracking-tight transition-all flex items-center justify-center gap-2 shadow-lg ${
                     loading || !prompt.trim()
                       ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                      : 'bg-[#fa2d48] hover:bg-[#e0263f] text-white active:scale-[0.985]'
+                      : 'bg-[#fa2d48] hover:bg-[#e0263f] text-white shadow-[#fa2d48]/25 active:scale-[0.985]'
                   }`}
                 >
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Interception &amp; Scrubbing Active...</span>
+                      <span>Sanitizing &amp; Routing Vector...</span>
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Sanitize &amp; Dispatch Vector</span>
+                      <span>Sanitize &amp; Dispatch to LLM</span>
+                      <ArrowRight className="w-3 h-3 opacity-70" />
                     </>
                   )}
                 </button>
@@ -636,79 +564,164 @@ function MainApp() {
                     <span>{error}</span>
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Right Column: Output & LLM Synthesis */}
-              <div className="lg:col-span-7 flex flex-col gap-4">
+              {/* Right Column: Output Stream & LLM Reasoning */}
+              <section className="lg:col-span-7 flex flex-col gap-4">
 
-                {/* Stage 1: Dispatched Sanitized Payload */}
-                <div className="bg-[#1c1c1e] border border-white/[0.08] rounded-xl p-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-white flex items-center gap-1.5">
+                {/* Inspection Console */}
+                <div className="bg-[#1c1c1f] border border-white/[0.08] rounded-2xl p-5 sm:p-6 flex flex-col gap-3.5 shadow-xl">
+                  
+                  {/* Tab Navigation Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                    <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#fa2d48]" />
-                      Dispatched Vector (Safe Payload)
-                    </span>
+                      <h3 className="text-xs font-semibold text-white tracking-tight">
+                        Dispatched Vector (Safe Payload)
+                      </h3>
+                    </div>
 
-                    {result && (
+                    <div className="flex items-center bg-[#141416] p-0.5 rounded-lg border border-white/[0.08]">
                       <button
-                        onClick={() => copyText(result.sanitized_prompt, 'prompt')}
-                        className="px-2.5 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-mono flex items-center gap-1 transition-colors"
+                        onClick={() => setInspectionView('stream')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                          inspectionView === 'stream' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                        }`}
                       >
-                        {copiedPrompt ? <Check className="w-2.5 h-2.5 text-[#14D086]" /> : <Copy className="w-2.5 h-2.5" />}
-                        {copiedPrompt ? "Copied" : "Copy Vector"}
+                        ◈ Stream View
                       </button>
-                    )}
+
+                      <button
+                        onClick={() => setInspectionView('diff')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                          inspectionView === 'diff' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        ◬ Token Diff
+                      </button>
+
+                      <button
+                        onClick={() => setInspectionView('json')}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                          inspectionView === 'json' ? 'bg-[#fa2d48] text-white shadow-sm' : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        ▣ Audit JSON
+                      </button>
+                    </div>
                   </div>
 
                   {/* Mode 1: Stream View */}
                   {inspectionView === 'stream' && (
-                    <div className="bg-[#141416] rounded-lg p-3 font-mono text-xs text-zinc-200 min-h-[70px] leading-relaxed flex items-center">
-                      {loading ? (
-                        <div className="w-full space-y-2 animate-pulse">
-                          <div className="h-3 bg-zinc-800 rounded w-3/4"></div>
-                          <div className="h-3 bg-zinc-800 rounded w-1/2"></div>
-                        </div>
-                      ) : result ? (
-                        <div className="w-full break-words">
-                          {renderHighlightedText(result.sanitized_prompt)}
-                        </div>
-                      ) : (
-                        <span className="text-zinc-500 italic text-xs">
-                          Sanitized payload tokens will render here...
-                        </span>
-                      )}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-[11px] text-zinc-400">
+                        <span>Dispatched to external LLM without sensitive tokens:</span>
+                        {result && (
+                          <button
+                            onClick={() => copyText(result.sanitized_prompt, 'prompt')}
+                            className="px-2.5 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-mono flex items-center gap-1 transition-colors"
+                          >
+                            {copiedPrompt ? <Check className="w-2.5 h-2.5 text-[#14D086]" /> : <Copy className="w-2.5 h-2.5" />}
+                            {copiedPrompt ? "Copied" : "Copy Vector"}
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="bg-[#141416] border border-white/[0.06] rounded-xl p-4 font-mono text-xs text-zinc-200 min-h-[85px] leading-relaxed flex items-center">
+                        {loading ? (
+                          <div className="w-full space-y-2 animate-pulse">
+                            <div className="h-3 bg-zinc-800 rounded w-3/4"></div>
+                            <div className="h-3 bg-zinc-800 rounded w-1/2"></div>
+                          </div>
+                        ) : result ? (
+                          <div className="w-full break-words">
+                            {renderHighlightedText(result.sanitized_prompt)}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-500 italic text-xs">
+                            Sanitized payload with redacted tokens will appear here...
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {/* Mode 2: Diff Inspector */}
+                  {/* Mode 2: Side-by-Side Diff Inspector */}
                   {inspectionView === 'diff' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="bg-[#141416] border border-rose-500/20 rounded-lg p-3 font-mono text-[11px] text-rose-200/90 max-h-[120px] overflow-y-auto">
-                        <div className="text-[9px] uppercase tracking-wider text-rose-400 font-bold mb-1">Pre-Sanitization</div>
-                        {result ? result.original_prompt : prompt}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-mono text-rose-400 font-semibold uppercase">
+                          ◈ Pre-Sanitization Stream
+                        </span>
+                        <div className="bg-[#141416] border border-rose-500/20 rounded-xl p-3 font-mono text-xs text-rose-200/90 min-h-[100px] max-h-[150px] overflow-y-auto leading-relaxed">
+                          {result ? result.original_prompt : prompt}
+                        </div>
                       </div>
-                      <div className="bg-[#141416] border border-emerald-500/20 rounded-lg p-3 font-mono text-[11px] text-emerald-200/90 max-h-[120px] overflow-y-auto">
-                        <div className="text-[9px] uppercase tracking-wider text-[#14D086] font-bold mb-1">Post-Sanitization</div>
-                        {result ? renderHighlightedText(result.sanitized_prompt, true) : "Awaiting dispatch..."}
+
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-mono text-[#14D086] font-semibold uppercase">
+                          ◬ Masked Vector (Dispatched)
+                        </span>
+                        <div className="bg-[#141416] border border-emerald-500/20 rounded-xl p-3 font-mono text-xs text-emerald-200/90 min-h-[100px] max-h-[150px] overflow-y-auto leading-relaxed">
+                          {result ? renderHighlightedText(result.sanitized_prompt, true) : "Awaiting dispatch..."}
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Mode 3: Audit JSON */}
+                  {/* Mode 3: Raw Audit JSON */}
                   {inspectionView === 'json' && (
-                    <pre className="bg-[#141416] rounded-lg p-3 font-mono text-[10px] text-zinc-300 max-h-[120px] overflow-y-auto leading-normal">
-                      {JSON.stringify(result || { status: "ready", model: "llama-3.1-8b", zero_retention: true }, null, 2)}
-                    </pre>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center text-[10px] text-zinc-400 font-mono">
+                        <span>Structured Telemetry Audit Record:</span>
+                        {result && (
+                          <button
+                            onClick={() => copyText(JSON.stringify(result, null, 2), 'prompt')}
+                            className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-mono flex items-center gap-1"
+                          >
+                            {copiedPrompt ? "Copied" : "Copy JSON"}
+                          </button>
+                        )}
+                      </div>
+                      <pre className="bg-[#141416] border border-white/[0.06] rounded-xl p-3.5 font-mono text-[11px] text-zinc-300 max-h-[140px] overflow-y-auto leading-normal">
+                        {JSON.stringify(result || { status: "ready", model: "llama-3.1-8b", zero_retention: true }, null, 2)}
+                      </pre>
+                    </div>
                   )}
+
+                  {/* Granular Latency Breakdown Waterfall Bar */}
+                  {result && (
+                    <div className="pt-3 border-t border-white/[0.06] flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-zinc-400">Microsecond SLA Breakdown:</span>
+                        <span className="text-zinc-300 font-medium">{result.metrics.processing_time_ms} ms</span>
+                      </div>
+
+                      <div className="w-full h-1.5 rounded-full bg-[#141416] flex overflow-hidden border border-white/[0.06]">
+                        <div style={{ width: `${nerPct}%` }} className="h-full bg-sky-400" title={`NER: ${breakdown.ner_analyzer_ms}ms`} />
+                        <div style={{ width: `${anonPct}%` }} className="h-full bg-amber-400" title={`Anonymizer: ${breakdown.anonymizer_ms}ms`} />
+                        <div style={{ width: `${llmPct}%` }} className="h-full bg-[#fa2d48]" title={`Groq: ${breakdown.llm_inference_ms}ms`} />
+                      </div>
+
+                      <div className="flex justify-between text-[10px] font-mono text-zinc-400 pt-0.5">
+                        <span className="text-sky-300">NER: {breakdown.ner_analyzer_ms}ms</span>
+                        <span className="text-amber-300">Anonymizer: {breakdown.anonymizer_ms}ms</span>
+                        <span className="text-[#ff4b60]">Groq LPU: {breakdown.llm_inference_ms}ms</span>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
 
                 {/* Stage 2: Groq LLaMA 3.1 Synthesis */}
-                <div className="bg-[#1c1c1e] border border-white/[0.08] rounded-xl p-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                      Groq LLaMA 3.1 Synthesis (Isolated)
-                    </span>
+                <div className="bg-[#1c1c1f] border border-white/[0.08] rounded-2xl p-5 sm:p-6 flex flex-col gap-3 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-400" />
+                      <h3 className="text-xs font-semibold text-white tracking-tight">
+                        Groq LLaMA 3.1 Synthesis (Safe Inference)
+                      </h3>
+                    </div>
 
                     {result && (
                       <button
@@ -716,12 +729,12 @@ function MainApp() {
                         className="px-2.5 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-mono flex items-center gap-1 transition-colors"
                       >
                         {copiedResponse ? <Check className="w-2.5 h-2.5 text-[#14D086]" /> : <Copy className="w-2.5 h-2.5" />}
-                        {copiedResponse ? "Copied" : "Copy Response"}
+                        {copiedResponse ? "Copied" : "Copy Output"}
                       </button>
                     )}
                   </div>
 
-                  <div className="bg-[#141416] rounded-lg p-3.5 font-mono text-xs text-zinc-200 min-h-[90px] max-h-[180px] overflow-y-auto leading-relaxed">
+                  <div className="bg-[#141416] border border-white/[0.06] rounded-xl p-4 font-mono text-xs text-zinc-200 min-h-[100px] max-h-[190px] overflow-y-auto leading-relaxed">
                     {loading ? (
                       <div className="w-full space-y-2 animate-pulse">
                         <div className="h-3 bg-zinc-800 rounded w-full"></div>
@@ -732,102 +745,101 @@ function MainApp() {
                       <div className="whitespace-pre-wrap">{displayedLlmResponse}</div>
                     ) : (
                       <span className="text-zinc-500 italic text-xs">
-                        LLM inference synthesis will render here in real time...
+                        Inference output from Groq will stream here...
                       </span>
                     )}
                   </div>
                 </div>
 
+              </section>
+
+            </main>
+
+          </div>
+        )}
+
+        {/* --- MAIN VIEW 2: DEVELOPER SDK DROPDOWN --- */}
+        {activeTab === 'sdk' && (
+          <section className="bg-[#1c1c1f] border border-white/[0.08] rounded-2xl p-6 sm:p-8 flex flex-col gap-5 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <FileCode className="w-4 h-4 text-[#fa2d48]" />
+                  <span>Developer Drop-In SDK Integration</span>
+                </h2>
+                <p className="text-xs text-zinc-400">
+                  Route your existing application LLM calls through PryvWire with zero infrastructure overhead.
+                </p>
               </div>
 
+              {/* Language Selector */}
+              <div className="flex items-center bg-[#141416] p-1 rounded-xl border border-white/[0.08]">
+                <button
+                  onClick={() => setSelectedSdkLang('python')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
+                    selectedSdkLang === 'python' ? 'bg-[#fa2d48] text-white' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Python
+                </button>
+                <button
+                  onClick={() => setSelectedSdkLang('curl')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
+                    selectedSdkLang === 'curl' ? 'bg-[#fa2d48] text-white' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  cURL
+                </button>
+                <button
+                  onClick={() => setSelectedSdkLang('node')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono transition-all ${
+                    selectedSdkLang === 'node' ? 'bg-[#fa2d48] text-white' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Node.js
+                </button>
+              </div>
             </div>
 
-          </section>
+            <div className="relative">
+              <pre className="bg-[#141416] border border-white/[0.06] rounded-xl p-5 font-mono text-xs text-zinc-200 overflow-x-auto leading-relaxed">
+                {getSdkSnippet(selectedSdkLang)}
+              </pre>
+              <button
+                onClick={() => copyText(getSdkSnippet(selectedSdkLang), 'sdk')}
+                className="absolute top-4 right-4 px-3 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs font-mono border border-white/[0.08] flex items-center gap-1.5 transition-all shadow-md"
+              >
+                {copiedSdk ? <Check className="w-3.5 h-3.5 text-[#14D086]" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSdk ? "Copied Code" : "Copy Snippet"}</span>
+              </button>
+            </div>
 
-        </main>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono text-zinc-400">
+              <div className="p-3 bg-[#141416] border border-white/[0.04] rounded-xl">
+                <span className="text-[#fa2d48] font-bold">Header:</span> X-API-Key auth
+              </div>
+              <div className="p-3 bg-[#141416] border border-white/[0.04] rounded-xl">
+                <span className="text-[#14D086] font-bold">Threshold:</span> 50KB payload ceiling
+              </div>
+              <div className="p-3 bg-[#141416] border border-white/[0.04] rounded-xl">
+                <span className="text-purple-400 font-bold">Resilience:</span> Automatic Circuit Breaker
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* --- Minimalist Compliance Footer --- */}
+        <footer className="pt-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between text-zinc-500 text-xs gap-2">
+          <div className="flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5 text-zinc-400" />
+            <span>Zero-Retention Architecture • No raw PII persisted to database</span>
+          </div>
+          <div className="font-mono text-[11px] text-zinc-500">
+            FastAPI (Render) + React (Vercel)
+          </div>
+        </footer>
 
       </div>
-
-      {/* --- FLOATING APPLE "NOW PLAYING / NOW SANITIZING" DOCK (Bottom Center) --- */}
-      <footer className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl bg-[#1c1c1e]/90 border border-white/[0.12] rounded-full px-5 py-2.5 shadow-2xl backdrop-blur-2xl flex items-center justify-between gap-4 z-50">
-        
-        {/* Left: Track / Model Status */}
-        <div className="flex items-center gap-3 min-w-0 w-1/3">
-          <div className="w-9 h-9 rounded-lg bg-[#fa2d48] text-white flex items-center justify-center shrink-0 shadow-md">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-white truncate">
-              {loading ? "Sanitizing Inbound Vector..." : result ? `Scrubbed (${result.metrics.threats_intercepted} Threats)` : "PryvWire Gateway"}
-            </span>
-            <span className="text-[10px] text-zinc-400 truncate font-mono">
-              Groq LLaMA 3.1 • Zero Retention
-            </span>
-          </div>
-        </div>
-
-        {/* Center: Playback / Sanitize Action Controls */}
-        <div className="flex flex-col items-center gap-1 w-1/3">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => {
-                const randomPreset = TRACK_PRESETS[Math.floor(Math.random() * TRACK_PRESETS.length)];
-                setPrompt(randomPreset.text);
-              }}
-              className="text-zinc-400 hover:text-white transition-colors"
-              title="Previous Vector"
-            >
-              <SkipBack className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => handleSanitize()}
-              disabled={loading}
-              className="w-8 h-8 rounded-full bg-white text-black hover:bg-[#fa2d48] hover:text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
-              title={loading ? "Sanitizing" : "Dispatch"}
-            >
-              {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
-            </button>
-
-            <button 
-              onClick={() => {
-                const nextPreset = TRACK_PRESETS[Math.floor(Math.random() * TRACK_PRESETS.length)];
-                setPrompt(nextPreset.text);
-              }}
-              className="text-zinc-400 hover:text-white transition-colors"
-              title="Next Vector"
-            >
-              <SkipForward className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Micro Scrubber / Latency Bar */}
-          <div className="w-full flex items-center gap-2 text-[9px] font-mono text-zinc-500">
-            <span>0ms</span>
-            <div className="flex-1 h-1 rounded-full bg-zinc-800 overflow-hidden flex">
-              <div 
-                style={{ width: `${result ? Math.min(100, Math.max(10, result.metrics.processing_time_ms / 5)) : 20}%` }} 
-                className="h-full bg-[#fa2d48] transition-all duration-500" 
-              />
-            </div>
-            <span>{result ? `${result.metrics.processing_time_ms}ms` : "50ms SLA"}</span>
-          </div>
-        </div>
-
-        {/* Right: Metrics / Volume Indicator */}
-        <div className="flex items-center justify-end gap-3 w-1/3 text-xs font-mono">
-          <div className="hidden sm:flex items-center gap-2 text-zinc-400">
-            <Volume2 className="w-3.5 h-3.5 text-[#14D086]" />
-            <span className="text-[11px] text-[#14D086]">
-              {metrics.total_requests} requests
-            </span>
-          </div>
-
-          <div className="w-2 h-2 rounded-full bg-[#14D086] animate-pulse" title="System Operational" />
-        </div>
-
-      </footer>
-
     </div>
   )
 }
