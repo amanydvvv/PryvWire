@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Shield, 
   ShieldCheck, 
   ShieldAlert, 
+  Shield, 
   Lock, 
   Zap, 
   Activity, 
-  Server, 
   Terminal, 
   Copy, 
   CheckCircle, 
@@ -15,7 +14,6 @@ import {
   FileText, 
   RefreshCw, 
   Sparkles,
-  ArrowRight,
   Database,
   Cpu
 } from 'lucide-react';
@@ -43,7 +41,6 @@ const PRESETS = [
 
 export default function App() {
   const [prompt, setPrompt] = useState(PRESETS[0].text);
-  const [simulateFailure, setSimulateFailure] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   
@@ -51,39 +48,32 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   
-  // Metrics & Audit
-  const [metrics, setMetrics] = useState({
-    total_requests: 0,
-    total_threats_blocked: 0,
-    avg_latency_ms: 0,
-    threat_types_breakdown: {},
-    active_model: "llama-3.1-8b-instant",
-    fail_closed_active: true
-  });
+  // Telemetry & Stats (stored locally & aggregated)
+  const [totalRequests, setTotalRequests] = useState(0);
+  const [totalThreats, setTotalThreats] = useState(0);
+  const [lastLatency, setLastLatency] = useState(0);
   const [auditLogs, setAuditLogs] = useState([]);
   const [backendHealth, setBackendHealth] = useState(null);
   const [showDocsModal, setShowDocsModal] = useState(false);
 
-  // Fetch telemetry and health
-  const fetchData = async () => {
+  // Check health
+  const checkHealth = async () => {
     try {
-      const [healthRes, metricsRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/health`).then(r => r.json()).catch(() => null),
-        fetch(`${API_BASE_URL}/api/metrics`).then(r => r.json()).catch(() => null),
-        fetch(`${API_BASE_URL}/api/audit-logs?limit=15`).then(r => r.json()).catch(() => null)
-      ]);
-
-      if (healthRes) setBackendHealth(healthRes);
-      if (metricsRes) setMetrics(metricsRes);
-      if (logsRes) setAuditLogs(logsRes);
-    } catch (err) {
-      console.error("Telemetry sync failed:", err);
+      const res = await fetch(`${API_BASE_URL}/health`);
+      if (res.ok) {
+        const data = await res.json();
+        setBackendHealth(data);
+      } else {
+        setBackendHealth(null);
+      }
+    } catch {
+      setBackendHealth(null);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 4000);
+    checkHealth();
+    const interval = setInterval(checkHealth, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -95,27 +85,58 @@ export default function App() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/sanitize`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sanitize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_prompt: prompt,
-          simulate_failure: simulateFailure
+          user_prompt: prompt
         })
       });
 
-      const data = await response.json();
+      const json = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || "Request failed due to security guard intervention.");
+        throw new Error(json.detail || "Request failed due to security middleware interception.");
       }
 
-      setResult(data);
-      fetchData();
+      const resData = json.data;
+      setResult(resData);
+      
+      // Update telemetry
+      const newThreats = resData.metrics.threats_intercepted;
+      const latency = resData.metrics.processing_time_ms;
+      
+      setTotalRequests(prev => prev + 1);
+      setTotalThreats(prev => prev + newThreats);
+      setLastLatency(latency);
+
+      // Append to Zero-PII Audit log
+      const newLog = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString(),
+        status: "SUCCESS",
+        threats_intercepted: newThreats,
+        entities_blocked: resData.metrics.entities_blocked,
+        sanitized_preview: resData.sanitized_prompt.slice(0, 75) + (resData.sanitized_prompt.length > 75 ? "..." : ""),
+        latency_ms: latency
+      };
+      setAuditLogs(prev => [newLog, ...prev.slice(0, 19)]);
+
     } catch (err) {
       setError(err.message);
       setResult(null);
-      fetchData();
+
+      // Log blocked request
+      const failedLog = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString(),
+        status: "FAIL_CLOSED_BLOCKED",
+        threats_intercepted: 0,
+        entities_blocked: ["SECURITY_GUARD"],
+        sanitized_preview: "[BLOCKED BY SECURITY POLICY]",
+        latency_ms: 0
+      };
+      setAuditLogs(prev => [failedLog, ...prev.slice(0, 19)]);
     } finally {
       setLoading(false);
     }
@@ -170,11 +191,11 @@ export default function App() {
                 fontWeight: '700',
                 fontFamily: 'var(--font-mono)'
               }}>
-                MVP v1.0
+                TRD v1.0.0
               </span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
-              Enterprise Zero-PII Redaction Engine & LLM Security Middleware
+              Enterprise Zero-PII Redaction Engine &amp; LLM Security Middleware
             </p>
           </div>
         </div>
@@ -185,14 +206,14 @@ export default function App() {
             <span className="pulse-dot"></span>
             <span style={{ color: 'var(--text-muted)' }}>Backend:</span>
             <strong style={{ color: backendHealth ? '#10b981' : '#f43f5e' }}>
-              {backendHealth ? 'Connected (Port 8000)' : 'Connecting...'}
+              {backendHealth ? 'Secure & Operational (Port 8000)' : 'Connecting...'}
             </strong>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.03)', padding: '6px 14px', borderRadius: '20px', border: '1px solid var(--border-color)', fontSize: '13px' }}>
             <Cpu size={14} color="#06b6d4" />
             <span style={{ color: 'var(--text-muted)' }}>Engine:</span>
-            <strong style={{ color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>Groq LLaMA 3.1</strong>
+            <strong style={{ color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>Presidio + Groq</strong>
           </div>
 
           <button 
@@ -200,7 +221,7 @@ export default function App() {
             className="btn-secondary"
           >
             <FileText size={14} />
-            PRD Specs
+            Swagger &amp; TRD Docs
           </button>
         </div>
       </header>
@@ -218,7 +239,7 @@ export default function App() {
             <div>
               <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>PII Threats Intercepted</div>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
-                {metrics.total_threats_blocked}
+                {totalThreats}
               </div>
             </div>
             <div style={{ background: 'rgba(16, 185, 129, 0.12)', padding: '10px', borderRadius: '10px' }}>
@@ -227,7 +248,7 @@ export default function App() {
           </div>
           <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <CheckCircle size={14} color="#10b981" />
-            <span>Emails, SSNs, Phones, Cards masked</span>
+            <span>Emails, Phones, Persons Redacted</span>
           </div>
         </div>
 
@@ -235,9 +256,9 @@ export default function App() {
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Total Inspected Requests</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Inspected Requests</div>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
-                {metrics.total_requests}
+                {totalRequests}
               </div>
             </div>
             <div style={{ background: 'rgba(6, 182, 212, 0.12)', padding: '10px', borderRadius: '10px' }}>
@@ -246,7 +267,7 @@ export default function App() {
           </div>
           <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Zap size={14} color="#06b6d4" />
-            <span>100% evaluated via Presidio NLP</span>
+            <span>Evaluated via Microsoft Presidio</span>
           </div>
         </div>
 
@@ -254,9 +275,9 @@ export default function App() {
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Average Latency</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Last Processing Latency</div>
               <div style={{ fontSize: '32px', fontWeight: '800', marginTop: '6px', color: '#c084fc', fontFamily: 'var(--font-mono)' }}>
-                {metrics.avg_latency_ms} <span style={{ fontSize: '16px', fontWeight: '500' }}>ms</span>
+                {lastLatency} <span style={{ fontSize: '16px', fontWeight: '500' }}>ms</span>
               </div>
             </div>
             <div style={{ background: 'rgba(139, 92, 246, 0.12)', padding: '10px', borderRadius: '10px' }}>
@@ -273,7 +294,7 @@ export default function App() {
         <div className="glass-panel" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Security Policy</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: '500' }}>Security Architecture</div>
               <div style={{ fontSize: '22px', fontWeight: '800', marginTop: '12px', color: '#fb7185', letterSpacing: '-0.3px' }}>
                 FAIL-CLOSED
               </div>
@@ -300,7 +321,7 @@ export default function App() {
               <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Live Interceptor Sandbox</h2>
             </div>
             <span style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-              POST /api/sanitize
+              POST /api/v1/sanitize
             </span>
           </div>
 
@@ -328,8 +349,9 @@ export default function App() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Enter text containing sensitive PII (emails, names, SSNs, credit cards, phones)..."
+                placeholder="Enter text containing sensitive PII (emails, names, phone numbers)..."
                 rows={7}
+                maxLength={2000}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -349,22 +371,13 @@ export default function App() {
                 onFocus={(e) => e.target.style.borderColor = 'var(--accent-emerald)'}
                 onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
               />
+              <div style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'right', marginTop: '4px' }}>
+                {prompt.length} / 2000 characters
+              </div>
             </div>
 
             {/* Options and Submit */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-muted)' }}>
-                <input
-                  type="checkbox"
-                  checked={simulateFailure}
-                  onChange={(e) => setSimulateFailure(e.target.checked)}
-                  style={{ accentColor: '#f43f5e', cursor: 'pointer' }}
-                />
-                <span style={{ color: simulateFailure ? '#fb7185' : 'inherit' }}>
-                  Simulate Engine Failure (Test Fail-Closed)
-                </span>
-              </label>
-
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button
                 type="submit"
                 disabled={loading || !prompt.trim()}
@@ -373,12 +386,12 @@ export default function App() {
                 {loading ? (
                   <>
                     <RefreshCw size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                    Intercepting & Redacting...
+                    Intercepting &amp; Redacting...
                   </>
                 ) : (
                   <>
                     <ShieldCheck size={16} />
-                    Inspect & Sanitize Prompt
+                    Inspect &amp; Sanitize Prompt
                   </>
                 )}
               </button>
@@ -400,7 +413,7 @@ export default function App() {
               <AlertTriangle size={20} color="#f43f5e" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <strong style={{ color: '#fb7185', fontSize: '13px', display: 'block' }}>
-                  Fail-Closed Security Block Engaged
+                  Security Guard Block Engaged
                 </strong>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '4px' }}>
                   {error}
@@ -426,7 +439,7 @@ export default function App() {
                 fontSize: '11px',
                 fontFamily: 'var(--font-mono)'
               }}>
-                ⚡ {result.latency_ms} ms
+                ⚡ {result.metrics.processing_time_ms} ms
               </span>
             )}
           </div>
@@ -447,7 +460,7 @@ export default function App() {
                 Waiting for prompt ingestion
               </div>
               <p style={{ fontSize: '12px', maxWidth: '320px', marginTop: '6px' }}>
-                Run an enterprise preset or enter custom prompt to inspect live NER detection, redaction tokens, and Groq inference.
+                Run an enterprise preset or enter a custom prompt to inspect live NER detection, redaction tokens, and Groq inference.
               </p>
             </div>
           )}
@@ -459,22 +472,21 @@ export default function App() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    Detected Entities ({result.detected_entities.length}):
+                    Blocked Entity Categories ({result.metrics.threats_intercepted}):
                   </span>
                 </div>
                 
-                {result.detected_entities.length === 0 ? (
+                {result.metrics.entities_blocked.length === 0 ? (
                   <div style={{ fontSize: '12px', color: '#10b981', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '6px' }}>
                     ✓ No sensitive PII detected. Prompt is clean.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {result.detected_entities.map((item, idx) => (
-                      <div key={idx} className={getBadgeClass(item.entity_type)}>
-                        <span>{item.entity_type}</span>
-                        <span style={{ opacity: 0.7 }}>({item.text_snippet})</span>
+                    {result.metrics.entities_blocked.map((item, idx) => (
+                      <div key={idx} className={getBadgeClass(item)}>
+                        <span>{item}</span>
                         <span style={{ background: 'rgba(0,0,0,0.2)', padding: '0 4px', borderRadius: '4px', fontSize: '10px' }}>
-                          {item.score}
+                          BLOCKED
                         </span>
                       </div>
                     ))}
@@ -486,7 +498,7 @@ export default function App() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    1. Sanitized Safe Prompt (Zero-PII Output):
+                    1. Sanitized Safe Prompt (Zero-PII Payload):
                   </span>
                   <button
                     onClick={() => copyToClipboard(result.sanitized_prompt)}
@@ -514,10 +526,10 @@ export default function App() {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)' }}>
-                    2. Groq LLaMA Inference Response:
+                    2. LLM Safe Gateway Response:
                   </span>
                   <span style={{ fontSize: '11px', color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
-                    llama-3.1-8b-instant
+                    llama3-8b-8192
                   </span>
                 </div>
                 <div style={{
@@ -546,7 +558,7 @@ export default function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Database size={18} color="#10b981" />
-            <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Compliance Telemetry & Audit Stream</h2>
+            <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Compliance Telemetry &amp; Audit Stream</h2>
             <span style={{
               fontSize: '11px',
               padding: '2px 8px',
@@ -555,17 +567,13 @@ export default function App() {
               color: '#10b981',
               border: '1px solid rgba(16, 185, 129, 0.2)'
             }}>
-              Zero Raw PII Storage Policy Enforced
+              Zero Raw PII Storage Policy
             </span>
           </div>
 
-          <button
-            onClick={fetchData}
-            className="btn-secondary"
-          >
-            <RefreshCw size={13} />
-            Refresh Stream
-          </button>
+          <div style={{ fontSize: '12px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+            Stream Records: {auditLogs.length}
+          </div>
         </div>
 
         {/* Audit Table */}
@@ -573,12 +581,12 @@ export default function App() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>ID</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Timestamp (UTC)</th>
+                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Event ID</th>
+                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Time</th>
                 <th style={{ padding: '10px 14px', fontWeight: '600' }}>Status</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Threats</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Blocked Categories</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Sanitized Output Preview (Zero PII)</th>
+                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Threats Blocked</th>
+                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Entity Categories</th>
+                <th style={{ padding: '10px 14px', fontWeight: '600' }}>Sanitized Preview (Zero PII)</th>
                 <th style={{ padding: '10px 14px', fontWeight: '600' }}>Latency</th>
               </tr>
             </thead>
@@ -586,17 +594,17 @@ export default function App() {
               {auditLogs.length === 0 ? (
                 <tr>
                   <td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                    No audit records recorded yet. Submit a prompt in the sandbox above.
+                    No audit records recorded yet. Test a prompt in the sandbox above.
                   </td>
                 </tr>
               ) : (
                 auditLogs.map((log) => (
                   <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}>
                     <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      #{log.id}
+                      #{String(log.id).slice(-6)}
                     </td>
                     <td style={{ padding: '12px 14px', color: 'var(--text-dim)', fontSize: '12px' }}>
-                      {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Just now'}
+                      {log.timestamp}
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <span style={{
@@ -616,8 +624,8 @@ export default function App() {
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {log.detected_entity_types && log.detected_entity_types.length > 0 ? (
-                          log.detected_entity_types.map((t, i) => (
+                        {log.entities_blocked && log.entities_blocked.length > 0 ? (
+                          log.entities_blocked.map((t, i) => (
                             <span key={i} style={{ fontSize: '10px', background: 'rgba(255,255,255,0.06)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)' }}>
                               {t}
                             </span>
@@ -641,7 +649,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* PRD Specs Modal */}
+      {/* Docs Modal */}
       {showDocsModal && (
         <div style={{
           position: 'fixed',
@@ -661,7 +669,7 @@ export default function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <FileText size={22} color="#10b981" />
-                <h2 style={{ fontSize: '18px', fontWeight: '800' }}>Product Requirements Document (PRD) Summary</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: '800' }}>API &amp; Architecture Documentation</h2>
               </div>
               <button
                 onClick={() => setShowDocsModal(false)}
@@ -675,31 +683,18 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13px', lineHeight: '1.7', color: 'var(--text-muted)' }}>
               <div>
                 <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  1. Executive Summary
+                  Interactive Swagger Docs:
                 </strong>
-                The Enterprise PII Security Middleware intercepts prompts, detects Personally Identifiable Information using Microsoft Presidio NLP, redacts sensitive data, and routes sanitized prompts to Groq LLMs.
+                Available live at <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" style={{ color: '#10b981' }}>http://localhost:8000/docs</a>
               </div>
 
               <div>
                 <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  2. Non-Functional Compliance Requirements
+                  API Contract (TRD Specification):
                 </strong>
-                <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <li><strong style={{ color: '#34d399' }}>Security (Fail-Closed):</strong> Any NLP error aborts request execution immediately.</li>
-                  <li><strong style={{ color: '#06b6d4' }}>Performance SLA:</strong> End-to-end redaction + inference latency under 1000ms.</li>
-                  <li><strong style={{ color: '#fb7185' }}>Zero-PII Statelessness:</strong> Raw user prompts containing PII are never persisted in the database or server logs.</li>
-                </ul>
-              </div>
-
-              <div>
-                <strong style={{ color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                  3. Key Architectural Files
-                </strong>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div>📁 docs/PRD.md - Complete Product Requirements Document</div>
-                  <div>📁 docs/TRD.md - Technical Requirements Document</div>
-                  <div>📁 main.py - FastAPI Middleware &amp; Fail-Closed Gateway</div>
-                  <div>📁 database.py - Zero-PII Audit Telemetry Schema</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '8px', color: '#34d399' }}>
+                  POST /api/v1/sanitize<br/>
+                  GET /health
                 </div>
               </div>
             </div>
